@@ -403,5 +403,6 @@ window.__bd = { get player() { return player; }, get traffic() { return traffic;
   // Test-Hilfe: Simulation anhalten und gezielt Einzelbilder rendern
   pause: (v) => { paused = v; },
   step: (n = 1, dt = 1 / 30) => { for (let i = 0; i < n; i++) { const inp = readInput(); player.update(dt, inp, world, traffic, rail); traffic.update(dt, player); rail.update(dt, player); people.update(dt, player, ['rain', 'drizzle', 'storm'].includes(weather.state.kind), people.count); updateEnvironment(dt); updateCamera(dt); } updateHUD(0.1); map.drawRadar($('minimap'), player); composer.render(); },
+  view: (px, py, pz, tx, ty, tz) => { camera.position.set(px, py, pz); camera.lookAt(tx, ty, tz); composer.render(); },
   teleport: (x, z, h) => { player.place(x, z, h); camState.init = false; },
   get rail() { return rail; }, get people() { return people; } };

@@ -1,6 +1,12 @@
 # Berlin Drive
 
-Ein Open-World-Fahrspiel im Browser. Man fährt durch ein 3D-Berlin-Mitte, das aus **echten OpenStreetMap-Daten** gebaut wird, mit **Live-Wetter**, **echtem Sonnenstand** und **Live-Verkehr** (optional über TomTom). Die Optik ist filmisch angelegt: ACES-Tonemapping, Bloom, weiche Schatten, nasse Straßen, Nacht mit beleuchteten Fenstern.
+Ein Open-World-Fahrspiel im Browser. Man fährt durch ein 3D-Berlin-Mitte, das aus **echten OpenStreetMap-Daten** gebaut wird, mit **Live-Wetter**, **echtem Sonnenstand** und **Live-Verkehr** (optional über TomTom). Die Optik ist filmisch angelegt: ACES-Tonemapping, Umgebungsverdeckung (GTAO), Bloom, Color Grading mit Vignette und Filmkorn, weiche Schatten, nasse Straßen, Nacht mit beleuchteten Fenstern und Schaufenstern.
+
+**Leben in der Stadt:**
+- **Fußgänger** (bis zu ~480, je nach Grafikstufe und Tageszeit) laufen animiert über die Gehwege, spannen bei Regen Schirme auf und springen beiseite, wenn ein Auto zu nahe kommt.
+- **Straßenbahnen** in BVG-Gelb als fünfteilige Gelenkzüge auf echten Gleisen (OSM `railway=tram`), mit Oberleitung, Haltestellenstopps; sie bremsen für dein Auto.
+- **S-Bahn-Züge** in Rot-Ocker auf dem gemauerten Stadtbahn-Viadukt (OSM `light_rail`/`rail`, Tunnel ausgenommen).
+- **Busse:** BVG-Eindecker und Berliner Doppeldecker im Straßenverkehr.
 
 > Das Spiel ist ein eigenständiges Projekt. Es lehnt sich nur an den Look moderner Open-World-Spiele an und enthält keine Inhalte, Marken oder Assets anderer Spiele.
 
@@ -80,6 +86,8 @@ src/traffic.js    Straßengraph, KI-Fahrzeuge (Folgeverhalten, Kreuzungen), Live
 src/weather.js    Open-Meteo, Sonnenstand, Himmel, Wolken, Regen, Schnee, Gewitter
 src/player.js     Fahrphysik (Drift, Grip je nach Wetter), Scheinwerfer, Motorsound
 src/minimap.js    Radar und Vollbildkarte im Web-Karten-Stil mit Verkehrsfarben
+src/rail.js       Gleise, Viadukt, Oberleitung, Straßenbahnen und S-Bahn
+src/people.js     animierte Fußgänger
 ```
 
 ## Lizenzen der Daten
