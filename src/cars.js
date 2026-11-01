@@ -15,6 +15,8 @@ export const CAR_TYPES = {
   city: { L: 3.78, W: 1.78, clear: 0.2, wheelR: 0.33, wf: 1.22, wr: -1.2, noseH: 0.64, hoodF: 0.9, belt: 1.02, wsBase: 0.9, wsTop: 0.12, roofH: 1.6, roofBack: -1.55, rearBase: -1.72, trunk: 1.0, roofColor: 0x15161a, ringLights: true, discWheels: 0xeeeae2, roundNose: 0.5, bevel: 0.13, glassBevel: 0.07 },
   // Flache Konzept-Limousine: schwebendes Dach, Lichtband, Aero-Felgen
   vision: { L: 5.15, W: 1.98, clear: 0.13, wheelR: 0.41, wf: 1.72, wr: -1.66, noseH: 0.46, hoodF: 0.64, belt: 0.84, wsBase: 1.05, wsTop: -0.3, roofH: 1.3, roofBack: -1.75, rearBase: -2.35, trunk: 0.88, floatingRoof: true, lightBar: true, aeroWheels: true, roundNose: 0.6, bevel: 0.1, glassBevel: 0.05 },
+  // Berliner Doppeldecker
+  dd: { L: 11.4, W: 2.55, clear: 0.3, wheelR: 0.5, wf: 3.5, wr: -2.4, noseH: 1.0, hoodF: 1.18, belt: 1.2, wsBase: 5.42, wsTop: 5.38, roofH: 4.05, roofBack: -5.45, rearBase: -5.48, trunk: 1.15, bus: true, decks: 2 },
   sport: { L: 4.5, W: 1.96, clear: 0.15, wheelR: 0.35, wf: 1.38, wr: -1.3, noseH: 0.42, hoodF: 0.62, belt: 0.82, wsBase: 0.62, wsTop: -0.38, roofH: 1.2, roofBack: -1.15, rearBase: -1.95, trunk: 0.86, spoiler: true },
 };
 
@@ -121,6 +123,11 @@ export function buildCarGeometry(key, { separateWheels = false } = {}) {
     for (const sx of [-1, 1]) body.push(prep(box(0.14, 0.1, 0.22, sx * (W / 2 + 0.06), p.belt + 0.06, p.wsBase - 0.15)));
   } else {
     for (let z = -4.5; z < 5; z += 2.2) body.push(prep(box(W - 0.1, p.roofH - p.belt, 0.14, 0, (p.roofH + p.belt) / 2, z)));
+  }
+  if (p.decks === 2) {
+    // Band zwischen den Decks und unter dem Dach
+    body.push(prep(box(W - 0.02, 0.42, p.L - 0.12, 0, 2.38, 0)));
+    body.push(prep(box(W - 0.02, 0.18, p.L - 0.12, 0, 3.98, 0)));
   }
   if (p.spoiler) {
     body.push(prep(box(W - 0.3, 0.05, 0.3, 0, p.trunk + 0.22, -h + 0.22)));

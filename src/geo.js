@@ -128,7 +128,7 @@ function buildingHeight(t, rnd) {
 }
 
 export function parseOSM(json) {
-  const data = { buildings: [], roads: [], water: [], parks: [], source: 'osm' };
+  const data = { buildings: [], roads: [], water: [], parks: [], rails: [], source: 'osm' };
   const proj = (geom) => geom.filter(Boolean).map((g) => project(g.lat, g.lon));
   const addArea = (ring, t, id) => {
     if (ring.length < 3) return;
@@ -153,6 +153,11 @@ export function parseOSM(json) {
         if (['yes', '1', 'true'].includes(t.oneway) || t.junction === 'roundabout') oneway = 1;
         if (t.oneway === '-1') oneway = -1;
         data.roads.push({ pts, type, width: Math.min(w, 40), name: t.name || '', oneway, id: el.id });
+      } else if (['tram', 'light_rail', 'rail'].includes(t.railway)) {
+        // Tunnel (U-Bahn, Nord-Süd-S-Bahn) und Abstellgleise auslassen
+        if ((t.tunnel && t.tunnel !== 'no') || t.service || pts.length < 2) continue;
+        // In Mitte liegt die Stadtbahn (S-Bahn + Fernbahn) komplett auf dem Viadukt
+        data.rails.push({ pts, kind: t.railway === 'tram' ? 'tram' : 'sbahn', elevated: t.railway !== 'tram', id: el.id });
       } else {
         addArea(openRing(pts), t, el.id);
       }
@@ -170,7 +175,7 @@ const ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
-const CACHE_URL = './__berlin_drive_osm_v2.json';
+const CACHE_URL = './__berlin_drive_osm_v3.json';
 
 async function readCache() {
   try {
@@ -196,6 +201,7 @@ export async function loadMapData(onStatus) {
   const q = `[out:json][timeout:120];(
     way["building"](${b});relation["building"](${b});
     way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian)(_link)?$"](${b});
+    way["railway"~"^(tram|light_rail|rail)$"](${b});
     way["natural"="water"](${b});relation["natural"="water"](${b});
     way["leisure"~"^(park|garden)$"](${b});relation["leisure"="park"](${b});
     way["landuse"~"^(grass|forest|meadow|recreation_ground|village_green)$"](${b});

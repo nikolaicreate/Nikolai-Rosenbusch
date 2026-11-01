@@ -4,11 +4,11 @@ import { mulberry32, LANDMARKS } from './geo.js';
 
 export function makeFallbackCity() {
   const rnd = mulberry32(1871);
-  const data = { buildings: [], roads: [], water: [], parks: [], source: 'model' };
+  const data = { buildings: [], roads: [], water: [], parks: [], rails: [], source: 'model' };
   const zL = LANDMARKS.tor[1];
 
   const ew = [
-    { z: zL - 470, name: 'Torstraße', type: 'primary', w: 20 },
+    { z: zL - 470, name: 'Oranienburger Straße', type: 'secondary', w: 18 },
     { z: zL - 300, name: 'Reinhardtstraße', type: 'secondary' },
     { z: zL - 150, name: 'Dorotheenstraße', type: 'tertiary' },
     { z: zL, name: 'Unter den Linden', type: 'primary', w: 44 },
@@ -77,9 +77,33 @@ export function makeFallbackCity() {
   plazas.push(gendarmenmarkt);
   data.parks.push([[gendarmenmarkt.x0 + 8, gendarmenmarkt.z0 + 8], [gendarmenmarkt.x1 - 8, gendarmenmarkt.z0 + 8], [gendarmenmarkt.x1 - 8, gendarmenmarkt.z1 - 8], [gendarmenmarkt.x0 + 8, gendarmenmarkt.z1 - 8]]);
 
+  // Stadtbahn-Viadukt (S-Bahn) entlang der Spree über den Bahnhof Friedrichstraße
+  const viaduct = [[-1150, zL - 520], [-860, zL - 470], [-500, zL - 425], [-210, zL - 410], [150, zL - 400], [450, zL - 420], [826, zL - 560], [1180, zL - 610]];
+  const offsetLine = (pts, d) => pts.map((p, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1;
+    return [p[0] - (dz / L) * d, p[1] + (dx / L) * d];
+  });
+  for (const d of [-2.1, 2.1]) data.rails.push({ pts: offsetLine(viaduct, d), kind: 'sbahn', elevated: true });
+  // Straßenbahn: Spandauer Straße (Nord-Süd) und Dorotheenstraße -> Oranienburger Straße (Ost-West)
+  const tramA = [[520, Z0], ...ew.map((e) => [520, e.z]).filter((p) => p[1] > Z0 && p[1] < Z1), [520, Z1]];
+  const tramB = [[-340, zL - 470], ...ns.filter((n) => n.x > -340).map((n) => [n.x, zL - 470])];
+  for (const line of [tramA, tramB]) for (const d of [-1.6, 1.6]) data.rails.push({ pts: offsetLine(line, d), kind: 'tram', elevated: false });
+  const distToLine = (x, z, line) => {
+    let best = 1e9;
+    for (let i = 0; i < line.length - 1; i++) {
+      const [ax, az] = line[i], [bx, bz] = line[i + 1];
+      const dx = bx - ax, dz = bz - az;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
+      best = Math.min(best, Math.hypot(x - ax - dx * t, z - az - dz * t));
+    }
+    return best;
+  };
+
   const palette = [0xeae2d4, 0xdcd0bb, 0xd2c8b8, 0xc4baa9, 0xe7dfd2, 0xcdbb9f, 0xb2ada4, 0xd9d3c9, 0xf0ebe1, 0xbfa98d];
   const addB = (x0, z0, x1, z1, h) => {
     if (distToSpree((x0 + x1) / 2, (z0 + z1) / 2) < half + 14) return;
+    if (distToLine((x0 + x1) / 2, (z0 + z1) / 2, viaduct) < 18 + Math.max(x1 - x0, z1 - z0) / 2) return;
     data.buildings.push({ ring: [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], h, color: palette[Math.floor(rnd() * palette.length)], name: '' });
   };
   for (let i = 0; i < ns.length; i++) {

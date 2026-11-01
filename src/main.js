@@ -4,12 +4,16 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { loadMapData, ROAD_TYPES, LANDMARKS } from './geo.js';
 import { buildWorld } from './world.js';
 import { Traffic } from './traffic.js';
 import { WeatherService, Environment, berlinHour } from './weather.js';
 import { Player, CarAudio } from './player.js';
 import { MapRenderer, flowColor } from './minimap.js';
+import { RailNetwork } from './rail.js';
+import { People } from './people.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -29,7 +33,7 @@ const settings = {
 };
 
 // ---------------------------------------------------------------- Renderer
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.6;
@@ -38,15 +42,33 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 $('app').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.3, 8000);
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.5, 8000);
 
 const QUALITY = {
-  ultra: { pr: Math.min(devicePixelRatio, 2), shadow: 4096, bloom: true, samples: 4 },
-  high: { pr: Math.min(devicePixelRatio, 1.5), shadow: 2048, bloom: true, samples: 4 },
-  medium: { pr: 1, shadow: 1024, bloom: true, samples: 2 },
-  low: { pr: Math.min(devicePixelRatio, 1) * 0.75, shadow: 0, bloom: false, samples: 0 },
+  ultra: { pr: Math.min(devicePixelRatio, 2), shadow: 4096, bloom: true, samples: 4, ao: true, people: 480, grade: true },
+  high: { pr: Math.min(devicePixelRatio, 1.5), shadow: 2048, bloom: true, samples: 4, ao: true, people: 340, grade: true },
+  medium: { pr: 1, shadow: 1024, bloom: true, samples: 2, ao: false, people: 220, grade: true },
+  low: { pr: Math.min(devicePixelRatio, 1) * 0.75, shadow: 0, bloom: false, samples: 0, ao: false, people: 100, grade: false },
 };
-let composer, bloom;
+// Farbkorrektur: leichte S-Kurve, Sättigung, Vignette, chromatische Aberration am Rand, Filmkorn
+const GradeShader = {
+  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, sat: { value: 1.08 }, vignette: { value: 0.32 }, grain: { value: 0.035 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float time, sat, vignette, grain; varying vec2 vUv;
+    void main(){
+      vec2 d = vUv - 0.5; float r = dot(d, d);
+      float ca = 0.006 * r;
+      vec3 c = vec3(texture2D(tDiffuse, vUv + d * ca).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - d * ca).b);
+      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      c = mix(vec3(l), c, sat);
+      c = mix(c, c * c * (3.0 - 2.0 * c), 0.22);
+      c *= 1.0 - vignette * r * 1.8;
+      float n = fract(sin(dot(vUv * vec2(12.9898, 78.233) + time, vec2(1.0))) * 43758.5453);
+      c += (n - 0.5) * grain;
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+};
+let composer, bloom, grade;
 function setupComposer() {
   const q = QUALITY[settings.quality] || QUALITY.high;
   renderer.setPixelRatio(q.pr);
@@ -57,10 +79,22 @@ function setupComposer() {
   composer.setPixelRatio(q.pr);
   composer.setSize(innerWidth, innerHeight);
   composer.addPass(new RenderPass(scene, camera));
+  if (q.ao) {
+    try {
+      const ao = new GTAOPass(scene, camera, innerWidth * q.pr, innerHeight * q.pr);
+      ao.updateGtaoMaterial({ radius: 1.6, distanceExponent: 1.5, thickness: 2, scale: 1.1, samples: 12 });
+      ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
+      ao.blendIntensity = 0.85;
+      composer.addPass(ao);
+    } catch (e) { console.warn('GTAO nicht verfügbar', e); }
+  }
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.35, 0.55, 0.9);
   bloom.enabled = q.bloom;
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
+  grade = new ShaderPass(GradeShader);
+  grade.enabled = q.grade;
+  composer.addPass(grade);
   renderer.shadowMap.enabled = q.shadow > 0;
   if (env) { env.sun.castShadow = q.shadow > 0; if (q.shadow) env.setShadowQuality(q.shadow); }
 }
@@ -70,7 +104,7 @@ addEventListener('resize', () => {
 });
 
 // ---------------------------------------------------------------- Laden
-let env, world, traffic, player, map, data;
+let env, world, traffic, player, map, data, rail, people;
 const weather = new WeatherService();
 weather.override = settings.weather;
 const audio = new CarAudio();
@@ -90,6 +124,10 @@ async function init() {
   await new Promise((r) => setTimeout(r, 30));
   traffic = new Traffic(scene, data.roads, settings.quality === 'low' ? 90 : 170);
   traffic.live.key = settings.tomtom;
+  loadStep(80, 'Straßenbahnen, S-Bahn und Fußgänger …');
+  await new Promise((r) => setTimeout(r, 30));
+  rail = new RailNetwork(scene, data.rails, world.colliders, world.roadIndex);
+  people = new People(scene, data.roads, world.colliders, (QUALITY[settings.quality] || QUALITY.high).people);
   player = new Player(scene, Number(settings.color), settings.model);
   resetPlayer(true);
   await weatherP;
@@ -99,7 +137,7 @@ async function init() {
   map = new MapRenderer(data, traffic);
   loadStep(95, 'Fast fertig …');
   // Vorab einige Frames simulieren, damit der Verkehr verteilt ist
-  for (let i = 0; i < 30; i++) traffic.update(0.1, player);
+  for (let i = 0; i < 30; i++) { traffic.update(0.1, player); rail.update(0.1, player); }
   updateEnvironment(0.016);
   composer.render();
   loadStep(100, data.source === 'osm' ? `Echte Kartendaten geladen: ${data.buildings.length.toLocaleString('de-DE')} Gebäude aus OpenStreetMap.` : 'Modell-Stadt aktiv (OpenStreetMap war nicht erreichbar).');
@@ -265,6 +303,13 @@ function updateEnvironment(dt) {
   if (player.autoLights) player.lightsOn = needLights;
   player.setLights(player.lightsOn, envInfo.night, player.braking);
   traffic.setNight(Math.max(envInfo.night, needLights ? 0.5 : 0));
+  rail.setNight(Math.max(envInfo.night, needLights ? 0.5 : 0));
+  // Umgebungsreflexionen nachts dämpfen (sonst wirken Bäume/Fassaden zu hell)
+  const envI = 0.12 + 0.88 * Math.max(envInfo.day ?? 1, 0) * (1 - (envInfo.overcast || 0) * 0.3);
+  if (Math.abs(envI - (updateEnvironment.lastEnv ?? -1)) > 0.02) {
+    updateEnvironment.lastEnv = envI;
+    scene.traverse((o) => { const m = o.material; if (m && 'envMapIntensity' in m) m.envMapIntensity = envI; });
+  }
   player.grip = 1 - envInfo.wet * 0.18 - envInfo.snow * 0.45;
   if (bloom) bloom.strength = 0.25 + envInfo.night * 0.55 + envInfo.wet * 0.1;
 }
@@ -327,9 +372,13 @@ function loop() {
   const dt = Math.min(0.05, clock.getDelta());
   const input = readInput();
   if (!menuOpen) {
-    player.update(dt, input, world, traffic);
+    player.update(dt, input, world, traffic, rail);
     traffic.update(dt, player);
+    rail.update(dt, player);
+    const q = QUALITY[settings.quality] || QUALITY.high;
+    people.update(dt, player, ['rain', 'drizzle', 'storm'].includes(weather.state.kind), Math.min(people.count, Math.round(q.people * (0.45 + traffic.live.level * 0.55) * (envInfo.night > 0.5 ? 0.5 : 1))));
   }
+  if (grade) grade.uniforms.time.value = (grade.uniforms.time.value + dt) % 100;
   if (player.impact > lastImpact + 0.1) audio.crash(player.impact);
   lastImpact = player.impact;
   updateEnvironment(dt);

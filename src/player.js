@@ -61,7 +61,7 @@ export class Player {
   setPaint(hex) { this.mats.body.color.setHex(hex); }
   place(x, z, heading) { this.x = x; this.z = z; this.heading = heading; this.vx = this.vz = 0; this.yawRate = 0; }
 
-  update(dt, input, world, traffic) {
+  update(dt, input, world, traffic, rail) {
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
     const rx = -fz, rz = fx; // rechts
     let vf = this.vx * fx + this.vz * fz;
@@ -136,6 +136,15 @@ export class Player {
       this.vx *= 0.92; this.vz *= 0.92;
     }
 
+    if (rail) {
+      const t = rail.collidePlayer(this.x, this.z, 1.25);
+      if (t.hit) {
+        this.x += t.px; this.z += t.pz;
+        const l = Math.hypot(t.px, t.pz) || 1; const nx = t.px / l, nz = t.pz / l;
+        const vn = this.vx * nx + this.vz * nz;
+        if (vn < 0) { this.vx -= nx * vn * 1.3; this.vz -= nz * vn * 1.3; this.impact = Math.max(this.impact, Math.min(1, -vn / 12)); }
+      }
+    }
     this.forwardSpeed = this.vx * nfx + this.vz * nfz;
     this.speed = Math.hypot(this.vx, this.vz);
     this.slip = Math.abs(this.vx * -nfz + this.vz * nfx);

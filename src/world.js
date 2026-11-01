@@ -109,8 +109,16 @@ function facadeTextures(aniso) {
   const rnd = mulberry32(42);
   const lit = [];
   for (let i = 0; i < N * N; i++) lit.push(rnd() < 0.34 ? 0.5 + rnd() * 0.5 : 0);
+  const shopLit = [];
+  for (let i = 0; i < N; i++) shopLit.push(rnd() < 0.75);
+  const AWN = ['#7a1c1c', '#1f3a5a', '#2f4a2f', '#3a3a3a', '#8a5a1a', '#5a2a4a'];
+  // Erdgeschoss (unterste Bildzeile = v 0): Läden mit Schaufenstern
+  const shops = (ctx, fn) => {
+    const y = (N - 1) * cell;
+    for (let fx = 0; fx < N; fx++) fn(ctx, fx * cell, y, fx);
+  };
   const win = (ctx, fn) => {
-    for (let fy = 0; fy < N; fy++) for (let fx = 0; fx < N; fx++) {
+    for (let fy = 0; fy < N - 1; fy++) for (let fx = 0; fx < N; fx++) {
       const x = fx * cell + cell * 0.26, y = fy * cell + cell * 0.2, w = cell * 0.48, h = cell * 0.6;
       fn(ctx, x, y, w, h, fy * N + fx);
     }
@@ -127,6 +135,16 @@ function facadeTextures(aniso) {
       c.fillStyle = 'rgba(255,255,255,0.55)'; c.fillRect(x + w / 2 - 2, y, 4, h); c.fillRect(x, y + h * 0.33, w, 3);
       if (i % 7 === 3) { c.fillStyle = 'rgba(230,225,210,0.85)'; c.fillRect(x, y, w, h * 0.45); }
     });
+    shops(ctx, (c, x, y, i) => {
+      c.fillStyle = '#9c968c'; c.fillRect(x, y, cell, cell);
+      c.fillStyle = '#2a2724'; c.fillRect(x + 4, y + 8, cell - 8, 18); // Schildband
+      c.fillStyle = 'rgba(255,255,255,0.75)'; c.font = 'bold 12px sans-serif'; if (i % 2 === 0) c.fillText(['CAFÉ', 'BÄCKEREI', 'SPÄTI', 'APOTHEKE', 'MODE', 'BAR', 'BUCHLADEN', 'BISTRO'][i], x + 10, y + 21);
+      const g = c.createLinearGradient(0, y + 30, 0, y + cell);
+      g.addColorStop(0, '#46586a'); g.addColorStop(1, '#141a20');
+      c.fillStyle = g; c.fillRect(x + 8, y + 32, cell - 16, cell - 38);
+      c.fillStyle = '#1b1b1b'; c.fillRect(x + cell / 2 - 2, y + 32, 4, cell - 38);
+      if (i % 3 === 0) { c.fillStyle = AWN[i % AWN.length]; c.fillRect(x + 2, y + 26, cell - 4, 12); c.fillStyle = 'rgba(255,255,255,0.35)'; for (let k = 0; k < cell; k += 16) c.fillRect(x + k, y + 26, 8, 12); }
+    });
   });
   const emissive = canvasTex(S, S, (ctx) => {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, S, S);
@@ -136,11 +154,17 @@ function facadeTextures(aniso) {
       c.fillStyle = warm ? `rgba(255,${190 + rnd() * 40},${110 + rnd() * 50},${v})` : `rgba(180,210,255,${v})`;
       c.fillRect(x, y, w, h);
     });
+    shops(ctx, (c, x, y, i) => {
+      if (!shopLit[i]) return;
+      c.fillStyle = `rgba(255,${200 + (i * 7) % 40},${130 + (i * 13) % 60},0.95)`; c.fillRect(x + 8, y + 32, cell - 16, cell - 38);
+      c.fillStyle = 'rgba(255,255,255,0.8)'; c.fillRect(x + 4, y + 8, cell - 8, 18);
+    });
   });
   // G = Rauheit, B = Metall (Fenster spiegeln)
   const rm = canvasTex(S, S, (ctx) => {
     ctx.fillStyle = 'rgb(0,235,0)'; ctx.fillRect(0, 0, S, S);
     win(ctx, (c, x, y, w, h) => { c.fillStyle = 'rgb(0,28,200)'; c.fillRect(x, y, w, h); });
+    shops(ctx, (c, x, y) => { c.fillStyle = 'rgb(0,20,220)'; c.fillRect(x + 8, y + 32, cell - 16, cell - 38); });
   }, { srgb: false });
   for (const t of [map, emissive, rm]) t.anisotropy = aniso;
   return { map, emissive, rm };
@@ -207,6 +231,25 @@ function buildBuildings(buildings, colliders, mats) {
         W.pos.push(...p, ...q, ...r);
         W.uv.push(...a, ...bq, ...c);
         for (let k = 0; k < 3; k++) { W.nor.push(nx, 0, nz); W.col.push(col.r, col.g, col.b); }
+      }
+    }
+    // Dachgesims: leicht vorspringendes Band
+    if (h > 8) {
+      const cc = col.clone().multiplyScalar(0.82);
+      for (let i = 0; i < n; i++) {
+        const [x0, z0] = ring[i], [x1, z1] = ring[(i + 1) % n];
+        const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz);
+        if (L < 0.3) continue;
+        const nx = dz / L, nz = -dx / L, o = 0.35;
+        const ax = x0 + nx * o, az = z0 + nz * o, bx = x1 + nx * o, bz = z1 + nz * o;
+        const y0 = h - 0.9, y1 = h + 0.25;
+        const A = [ax, y0, az], B = [bx, y0, bz], C = [bx, y1, bz], D = [ax, y1, az];
+        const A0 = [x0, y0, z0], B0 = [x1, y0, z1];
+        const quads = [[A, D, B, [nx, 0, nz]], [B, D, C, [nx, 0, nz]], [A0, A, B0, [0, -1, 0]], [B0, A, B, [0, -1, 0]]];
+        for (const [p, q, r, nn] of quads) {
+          W.pos.push(...p, ...q, ...r); W.uv.push(0.004, 0.996, 0.004, 0.996, 0.004, 0.996);
+          for (let k = 0; k < 3; k++) { W.nor.push(...nn); W.col.push(cc.r, cc.g, cc.b); }
+        }
       }
     }
     // Dach
@@ -388,7 +431,7 @@ export function buildWorld(scene, data, renderer) {
   data.roads.forEach((r, i) => {
     const def = ROAD_TYPES[r.type];
     roadIndex.add(r);
-    const jitter = (i % 9) * 0.004;
+    const jitter = (i % 9) * 0.008;
     if (r.type === 'pedestrian') { ribbon(r.pts, r.width, 0.05 + jitter, walk, 10); return; }
     if (r.type !== 'service') ribbon(r.pts, r.width + 6, 0.04 + jitter * 0.5, walk, 10);
     ribbon(r.pts, r.width, (def.major ? 0.09 : 0.07) + jitter, def.major ? major : minor, 12);
