@@ -293,7 +293,7 @@ function buildBuildings(buildings, colliders, mats, tag) {
       if (L < 0.05) continue;
       // Außennormale bei positiver Fläche (x,z-System): (dz, -dx)
       const nx = dz / L, nz = -dx / L;
-      const u0 = u / 24, u1 = (u + L) / 24, v1 = h / 24;
+      const u0 = -u / 24, u1 = -(u + L) / 24, v1 = h / 24; // von außen gesehen links->rechts (Schrift nicht gespiegelt)
       u += L;
       // Dreiecke so anordnen, dass die Vorderseite nach außen zeigt
       const A = [x0, 0, z0], B = [x1, 0, z1], C = [x1, h, z1], D = [x0, h, z0];

@@ -247,6 +247,7 @@ export class Environment {
     this.flareAnchor.position.copy(camera.position).addScaledVector(dir, 3000);
     this.flare.visible = this.flareEnabled && alt > -0.01 && overcast < 0.55 && kind !== 'fog';
     this.stars.position.copy(camera.position);
+    this.sky.position.copy(camera.position); this.dome.position.copy(camera.position);
 
     // Niederschlag
     this.rain.visible = raining; this.snow.visible = snowing;
@@ -312,10 +313,13 @@ export class Environment {
   }
   updateEnvMap() {
     const parentSky = this.sky.parent, parentDome = this.dome.parent;
+    const sp = this.sky.position.clone(), dp = this.dome.position.clone();
+    this.sky.position.set(0, 0, 0); this.dome.position.set(0, 0, 0);
     this.envScene.add(this.sky); this.envScene.add(this.dome);
     const prevFog = this.scene.fog;
     const rt = this.pmrem.fromScene(this.envScene, 0, 1, 10000);
     parentSky.add(this.sky); parentDome.add(this.dome);
+    this.sky.position.copy(sp); this.dome.position.copy(dp);
     if (this.envRT) this.envRT.dispose();
     this.envRT = rt;
     this.scene.environment = rt.texture;
