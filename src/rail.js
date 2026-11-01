@@ -150,6 +150,17 @@ export class RailNetwork {
     const steel = { pos: [], nor: [], uv: [], idx: [] }, ballast = { pos: [], nor: [], uv: [], idx: [] };
     const deck = { pos: [], nor: [], uv: [], idx: [] }, walls = { pos: [], nor: [], uv: [], idx: [] };
     const wire = [], masts = [], pillars = [];
+    const elevated = rails.filter((r) => r.elevated);
+    const distToPts = (x, z, pts) => {
+      let best = 1e9;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const [ax, az] = pts[i], [bx, bz] = pts[i + 1]; const dx = bx - ax, dz = bz - az;
+        if (Math.abs(x - ax) > 60 && Math.abs(x - bx) > 60 && Math.sign(x - ax) === Math.sign(x - bx)) continue;
+        const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
+        best = Math.min(best, Math.hypot(x - ax - dx * t, z - az - dz * t));
+      }
+      return best;
+    };
     for (const r of rails) {
       const y = r.elevated ? DECK_Y : 0;
       if (r.elevated) {
@@ -161,6 +172,9 @@ export class RailNetwork {
           for (let i = 0; i < e.length - 1; i++) {
             const [x0, z0] = e[i], [x1, z1] = e[i + 1];
             const L = Math.hypot(x1 - x0, z1 - z0); if (L < 0.01) continue;
+            // keine Brüstung zwischen parallelen Gleisen
+            const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+            if (elevated.some((o) => o !== r && distToPts(mx, mz, o.pts) < 4.2)) continue;
             const base = walls.pos.length / 3;
             const nx = (side > 0 ? -1 : 1) * -(z1 - z0) / L, nz = (side > 0 ? -1 : 1) * (x1 - x0) / L;
             walls.pos.push(x0, y - 1.6, z0, x1, y - 1.6, z1, x1, y + 1.0, z1, x0, y + 1.0, z0);
