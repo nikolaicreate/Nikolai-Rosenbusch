@@ -2,13 +2,20 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Berlin Drive</title>
   <meta name="description" content="Open-World-Fahrspiel in einem 3D-Berlin aus echten OpenStreetMap-Daten, mit Live-Wetter und Verkehr.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Berlin Drive">
+  <meta name="theme-color" content="#0b0d1a">
   <script type="importmap">
   {
     "imports": {
@@ -147,7 +154,7 @@
   <!-- Touch-Steuerung -->
   <div id="touch" class="hidden">
     <div class="tleft"><button data-k="left">◀</button><button data-k="right">▶</button></div>
-    <div class="tright"><button data-k="enter">F</button><button data-k="brake">▼</button><button data-k="hand">⟲</button><button data-k="gas">▲</button></div>
+    <div class="tright"><button data-k="enter">F</button><button data-k="run">»</button><button data-k="brake">▼</button><button data-k="hand">⟲</button><button data-k="gas">▲</button></div>
   </div>
 
   <script type="module" src="src/main.js"></script>

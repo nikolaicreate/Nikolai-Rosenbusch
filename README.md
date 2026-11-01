@@ -27,6 +27,15 @@ Ein Open-World-Fahrspiel im Browser. Man fährt durch ein 3D-Berlin-Mitte, das a
 4. 1–3 Minuten warten, Seite neu laden. Oben erscheint „Your site is live at …“.
 5. Den Link öffnen und **Losfahren** klicken.
 
+### Als App auf dem iPad (oder iPhone/Android)
+
+1. Auf dem iPad **Safari** öffnen und https://nikolaicreate.github.io/Nikolai-Rosenbusch/ aufrufen (GitHub Pages muss eingeschaltet sein, siehe oben).
+2. Unten bzw. oben rechts auf das **Teilen-Symbol** tippen (Quadrat mit Pfeil nach oben).
+3. **„Zum Home-Bildschirm“** wählen, dann **„Hinzufügen“**.
+4. Auf dem Homescreen erscheint **Berlin Drive** mit eigenem Symbol. Antippen: Das Spiel startet im Vollbild wie eine App, mit Touch-Tasten (◀ ▶ lenken, ▲ Gas, ▼ Bremse, ⟲ Handbremse, F ein-/aussteigen, » rennen).
+
+Eine native Unreal-App für das iPad bräuchte einen Mac mit Xcode, Unreal Engine 5 und ein Apple-Entwicklerkonto; sie ist nicht Teil dieses Projekts.
+
 ## Lokal starten
 
 Es gibt keinen Build-Schritt. Weil ES-Module und `fetch` einen Webserver brauchen, den Ordner einfach statisch ausliefern:

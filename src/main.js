@@ -269,7 +269,7 @@ function resetPlayer(initial = false) {
 
 // ---------------------------------------------------------------- Steuerung
 const keys = new Set();
-const touch = { left: false, right: false, gas: false, brake: false, hand: false };
+const touch = { left: false, right: false, gas: false, brake: false, hand: false, run: false };
 let camMode = 0, mapOpen = false, menuOpen = false, running = false;
 addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
@@ -298,7 +298,7 @@ function readInput() {
     throttle: k('KeyW') || k('ArrowUp') || touch.gas ? 1 : 0,
     brake: k('KeyS') || k('ArrowDown') || touch.brake ? 1 : 0,
     hand: k('Space') || touch.hand,
-    run: k('ShiftLeft') || k('ShiftRight'),
+    run: k('ShiftLeft') || k('ShiftRight') || touch.run,
   };
   const gp = navigator.getGamepads?.()[0];
   if (gp) {
@@ -628,6 +628,11 @@ init().then(() => { env.onThunder = () => audio.thunder(); loop(); }).catch((e) 
   console.error(e);
   loadStep(100, 'Fehler beim Start: ' + e.message);
 });
+
+// Als App installierbar (Homescreen auf iPad/iPhone/Android)
+if ('serviceWorker' in navigator && location.protocol === 'https:' && /github\.io$|localhost/.test(location.hostname)) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
 
 // Debug-/Testzugriff
 window.__bd = { get player() { return player; }, get traffic() { return traffic; }, get world() { return world; }, get data() { return data; }, settings, weather, camera, setCam: (m) => (camMode = m), start,
