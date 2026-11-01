@@ -1,7 +1,7 @@
 // KI-Verkehr auf dem echten Straßengraphen + Live-Verkehrslage (TomTom) bzw. Tageszeit-Modell.
 import * as THREE from 'three';
 import { ROAD_TYPES, mulberry32, hashStr, project } from './geo.js';
-import { buildCarGeometry, makeCarMaterials, PAINTS, TAXI_COLOR, BVG_YELLOW, CITY_PAINTS, VISION_PAINTS } from './cars.js';
+import { buildCarGeometry, makeCarMaterials, buildBeamGeometry, makeBeamMaterial, PAINTS, TAXI_COLOR, BVG_YELLOW, CITY_PAINTS, VISION_PAINTS } from './cars.js';
 
 // ---------------------------------------------------------------- Graph
 function buildGraph(roads) {
@@ -163,6 +163,7 @@ export class Traffic {
     const mats = makeCarMaterials(0xffffff);
     mats.body = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.55, roughness: 0.3 });
     this.lightMat = mats.lights;
+    this.beamMat = makeBeamMaterial();
     for (const [type, n] of Object.entries(counts)) {
       const g = buildCarGeometry(type);
       const set = {};
@@ -174,6 +175,9 @@ export class Traffic {
         scene.add(im);
         set[part] = im;
       }
+      const beam = new THREE.InstancedMesh(buildBeamGeometry(type), this.beamMat, n);
+      beam.instanceMatrix.setUsage(THREE.DynamicDrawUsage); beam.frustumCulled = false; beam.renderOrder = 3;
+      scene.add(beam); set.beam = beam;
       const c = new THREE.Color();
       for (let i = 0; i < n; i++) {
         const pick = (a) => a[Math.floor(this.rnd() * a.length)];
@@ -372,7 +376,9 @@ export class Traffic {
     }
     return { px, pz, hit };
   }
-  setNight(night, brake = 0) {
+  setNight(night, brake = 0, haze = 0) {
     this.lightMat.color.setScalar(0.8 + night * 3.5 + brake);
+    this.beamMat.opacity = night > 0.3 || haze > 0.3 ? Math.min(0.16, 0.02 + night * 0.04 + haze * 0.09) : 0;
+    for (const t in this.meshes) this.meshes[t].beam.visible = this.beamMat.opacity > 0;
   }
 }

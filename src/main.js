@@ -6,6 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { ROAD_TYPES, LANDMARKS, TILE, tileOf, tileId, tileBounds, tileInBerlin, loadTileOSM, districtAt } from './geo.js';
 import { makeFallbackTile } from './fallback.js';
 import { createWorld } from './world.js';
@@ -29,7 +30,7 @@ const store = {
 const settings = {
   weather: params.get('weather') || store.get('weather', 'live'),
   time: params.get('time') || store.get('time', 'live'),
-  quality: params.get('quality') || store.get('quality', 'high'),
+  quality: params.get('quality') || store.get('quality', !matchMedia('(pointer: coarse)').matches && (navigator.hardwareConcurrency || 4) >= 8 ? 'max' : 'high'),
   color: store.get('color', '0xf05a1a'),
   model: params.get('car') || store.get('model', 'city'),
   tomtom: store.get('tomtom', ''),
@@ -48,10 +49,12 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.5, 8000);
 
 const QUALITY = {
-  ultra: { pr: Math.min(devicePixelRatio, 2), shadow: 4096, bloom: true, samples: 4, ao: true, people: 480, grade: true },
-  high: { pr: Math.min(devicePixelRatio, 1.5), shadow: 2048, bloom: true, samples: 4, ao: true, people: 340, grade: true },
-  medium: { pr: 1, shadow: 1024, bloom: true, samples: 2, ao: false, people: 220, grade: true },
-  low: { pr: Math.min(devicePixelRatio, 1) * 0.75, shadow: 0, bloom: false, samples: 0, ao: false, people: 100, grade: false },
+  // Maximum: Supersampling auch auf normalen Bildschirmen, 4K-Schatten auf engem Bereich (schärfer), Tiefenschärfe, Linsenreflexe
+  max: { pr: Math.min(2, Math.max(1.5, devicePixelRatio)), shadow: 4096, range: 110, bloom: true, samples: 4, ao: true, aoSamples: 16, people: 600, cars: 230, grade: true, dof: true, flare: true },
+  ultra: { pr: Math.min(devicePixelRatio, 2), shadow: 4096, range: 160, bloom: true, samples: 4, ao: true, aoSamples: 12, people: 480, cars: 200, grade: true, dof: true, flare: true },
+  high: { pr: Math.min(devicePixelRatio, 1.5), shadow: 2048, range: 160, bloom: true, samples: 4, ao: true, aoSamples: 10, people: 340, cars: 170, grade: true, dof: false, flare: true },
+  medium: { pr: 1, shadow: 1024, range: 160, bloom: true, samples: 2, ao: false, people: 220, cars: 140, grade: true, dof: false, flare: false },
+  low: { pr: Math.min(devicePixelRatio, 1) * 0.75, shadow: 0, range: 160, bloom: false, samples: 0, ao: false, people: 100, cars: 90, grade: false, dof: false, flare: false },
 };
 // Farbkorrektur: leichte S-Kurve, Sättigung, Vignette, chromatische Aberration am Rand, Filmkorn
 const GradeShader = {
@@ -71,7 +74,7 @@ const GradeShader = {
       gl_FragColor = vec4(c, 1.0);
     }`,
 };
-let composer, bloom, grade;
+let composer, bloom, grade, dof;
 function setupComposer() {
   const q = QUALITY[settings.quality] || QUALITY.high;
   renderer.setPixelRatio(q.pr);
@@ -85,11 +88,15 @@ function setupComposer() {
   if (q.ao) {
     try {
       const ao = new GTAOPass(scene, camera, innerWidth * q.pr, innerHeight * q.pr);
-      ao.updateGtaoMaterial({ radius: 1.6, distanceExponent: 1.5, thickness: 2, scale: 1.1, samples: 12 });
+      ao.updateGtaoMaterial({ radius: 1.6, distanceExponent: 1.5, thickness: 2, scale: 1.1, samples: q.aoSamples || 12 });
       ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
       ao.blendIntensity = 0.85;
       composer.addPass(ao);
     } catch (e) { console.warn('GTAO nicht verfügbar', e); }
+  }
+  dof = null;
+  if (q.dof) {
+    try { dof = new BokehPass(scene, camera, { focus: 12, aperture: 0.0016, maxblur: 0.008 }); dof.enabled = false; composer.addPass(dof); } catch (e) { dof = null; }
   }
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.35, 0.55, 0.9);
   bloom.enabled = q.bloom;
@@ -99,7 +106,7 @@ function setupComposer() {
   grade.enabled = q.grade;
   composer.addPass(grade);
   renderer.shadowMap.enabled = q.shadow > 0;
-  if (env) { env.sun.castShadow = q.shadow > 0; if (q.shadow) env.setShadowQuality(q.shadow); }
+  if (env) { env.sun.castShadow = q.shadow > 0; if (q.shadow) env.setShadowQuality(q.shadow); env.setShadowRange(q.range); env.flareEnabled = q.flare; }
 }
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
@@ -188,10 +195,11 @@ async function init() {
   loadStep(5, 'Initialisiere Grafik …');
   env = new Environment(scene, renderer);
   setupComposer();
+  { const q = QUALITY[settings.quality] || QUALITY.high; env.setShadowRange(q.range); env.flareEnabled = q.flare; }
   const weatherP = weather.fetchLive();
   world = createWorld(scene, renderer);
   rail = new RailNetwork(scene);
-  traffic = new Traffic(scene, [], settings.quality === 'low' ? 90 : 170);
+  traffic = new Traffic(scene, [], (QUALITY[settings.quality] || QUALITY.high).cars);
   traffic.live.key = settings.tomtom;
   people = new People(scene, [], world.colliders, (QUALITY[settings.quality] || QUALITY.high).people);
   player = new Player(scene, Number(settings.color), settings.model);
@@ -492,17 +500,18 @@ function updateEnvironment(dt) {
   const w = weather.state;
   const a = actor();
   envInfo = env.update(dt, gameDate(), w, camera, new THREE.Vector3(a.x, 0, a.z));
-  world.applyEnvironment({ night: envInfo.night, wet: envInfo.wet, snow: envInfo.snow, t: performance.now() / 1000, x: a.x, z: a.z });
+  const envI = 0.12 + 0.88 * Math.max(envInfo.day ?? 1, 0) * (1 - (envInfo.overcast || 0) * 0.3);
+  world.applyEnvironment({ night: envInfo.night, wet: envInfo.wet, snow: envInfo.snow, t: performance.now() / 1000, x: a.x, z: a.z, envI });
   const needLights = envInfo.night > 0.35 || w.kind === 'fog' || (envInfo.overcast > 0.8 && envInfo.day < 0.6) || envInfo.intensity > 0.6;
   if (player.autoLights) player.lightsOn = needLights;
-  player.setLights(player.lightsOn, envInfo.night, player.braking);
-  traffic.setNight(Math.max(envInfo.night, needLights ? 0.5 : 0));
+  const haze = (w.kind === 'fog' ? 1 : 0) + (envInfo.intensity || 0) * 0.6;
+  player.setLights(player.lightsOn, envInfo.night, player.braking, haze);
+  traffic.setNight(Math.max(envInfo.night, needLights ? 0.5 : 0), 0, haze);
   rail.setNight(Math.max(envInfo.night, needLights ? 0.5 : 0));
   // Umgebungsreflexionen nachts dämpfen (sonst wirken Bäume/Fassaden zu hell)
-  const envI = 0.12 + 0.88 * Math.max(envInfo.day ?? 1, 0) * (1 - (envInfo.overcast || 0) * 0.3);
   if (Math.abs(envI - (updateEnvironment.lastEnv ?? -1)) > 0.02) {
     updateEnvironment.lastEnv = envI;
-    scene.traverse((o) => { const m = o.material; if (m && 'envMapIntensity' in m) m.envMapIntensity = envI; });
+    scene.traverse((o) => { const m = o.material; if (m && 'envMapIntensity' in m && m !== world.mats.roadMajor && m !== world.mats.roadMinor) m.envMapIntensity = envI; });
   }
   player.grip = 1 - envInfo.wet * 0.18 - envInfo.snow * 0.45;
   if (bloom) bloom.strength = 0.25 + envInfo.night * 0.55 + envInfo.wet * 0.1;
@@ -563,6 +572,10 @@ function updateCamera(dt) {
   camera.position.x += (Math.random() - 0.5) * camState.shake * 0.5;
   camera.position.y += (Math.random() - 0.5) * camState.shake * 0.5;
   camera.lookAt(camState.look);
+  if (dof) {
+    dof.enabled = camMode === 3;
+    if (dof.enabled) dof.uniforms.focus.value = camera.position.distanceTo(new THREE.Vector3(a.x, baseY + 1, a.z));
+  }
   const fov = (camMode === 2 ? 70 : 60) + Math.min(16, sp * 0.22);
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
 }

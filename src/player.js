@@ -1,6 +1,6 @@
 // Spielerfahrzeug: Arcade-Fahrphysik mit Drift, Kollisionen, Scheinwerfern und Motorsound.
 import * as THREE from 'three';
-import { buildCarGeometry, makeCarMaterials } from './cars.js';
+import { buildCarGeometry, makeCarMaterials, buildBeamGeometry, makeBeamMaterial } from './cars.js';
 
 const GEAR_TOP = [0, 13, 24, 36, 49, 63, 80]; // m/s pro Gang
 // Beschleunigung (m/s²) und Höchstgeschwindigkeit (m/s) je Fahrzeugtyp
@@ -68,6 +68,10 @@ export class Player {
       return { pivot, mesh, front: w.front };
     });
     for (const h of this.headlights || []) h.position.z = g.params.L / 2 - 0.2;
+    if (!this.beamMat) this.beamMat = makeBeamMaterial();
+    if (this.beams) { this.body.remove(this.beams); this.beams.geometry.dispose(); }
+    this.beams = new THREE.Mesh(buildBeamGeometry(model), this.beamMat); this.beams.renderOrder = 3;
+    this.body.add(this.beams);
   }
   setPaint(hex) { this.mats.body.color.setHex(hex); }
   place(x, z, heading) { this.x = x; this.z = z; this.heading = heading; this.vx = this.vz = 0; this.yawRate = 0; }
@@ -184,7 +188,8 @@ export class Player {
       if (w.front) w.pivot.rotation.y = this.steer;
     }
   }
-  setLights(on, night, brake) {
+  setLights(on, night, brake, haze = 0) {
+    if (this.beamMat) this.beamMat.opacity = on ? Math.min(0.22, 0.03 + night * 0.06 + haze * 0.12) : 0;
     for (const h of this.headlights) h.intensity = on ? 160 : 0;
     this.glow.material.opacity = on ? 0.35 * Math.max(0.3, night) : 0;
     this.mats.lights.color.setScalar(on ? 3.5 : 1).add(new THREE.Color(brake ? 2 : 0, 0, 0));

@@ -121,6 +121,24 @@ function canvasTex(w, h, draw, { srgb = true, repeat = true } = {}) {
   return t;
 }
 
+/** Erzeugt aus einer Höhenkarte (Canvas, Graustufen) eine Normal-Map. */
+function heightToNormal(hc, strength = 2) {
+  const w = hc.width, h = hc.height;
+  const src = hc.getContext('2d').getImageData(0, 0, w, h).data;
+  const out = document.createElement('canvas'); out.width = w; out.height = h;
+  const ctx = out.getContext('2d'); const img = ctx.createImageData(w, h);
+  const H = (x, y) => src[(((y + h) % h) * w + ((x + w) % w)) * 4] / 255;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const dx = (H(x + 1, y) - H(x - 1, y)) * strength, dy = (H(x, y + 1) - H(x, y - 1)) * strength;
+    const l = Math.hypot(dx, dy, 1);
+    const i = (y * w + x) * 4;
+    img.data[i] = ((-dx / l) * 0.5 + 0.5) * 255; img.data[i + 1] = ((dy / l) * 0.5 + 0.5) * 255; img.data[i + 2] = (1 / l) * 255; img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(out); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
 function facadeTextures(aniso) {
   const N = 8, S = 1024, cell = S / N;
   const rnd = mulberry32(42);
@@ -183,8 +201,24 @@ function facadeTextures(aniso) {
     win(ctx, (c, x, y, w, h) => { c.fillStyle = 'rgb(0,28,200)'; c.fillRect(x, y, w, h); });
     shops(ctx, (c, x, y) => { c.fillStyle = 'rgb(0,20,220)'; c.fillRect(x + 8, y + 32, cell - 16, cell - 38); });
   }, { srgb: false });
-  for (const t of [map, emissive, rm]) t.anisotropy = aniso;
-  return { map, emissive, rm };
+  // Relief: Fenster liegen tiefer, Gesimsbänder stehen vor, leichter Putz
+  const hc = document.createElement('canvas'); hc.width = hc.height = 512;
+  { const c = hc.getContext('2d'); const k = 0.5;
+    c.fillStyle = 'rgb(150,150,150)'; c.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 6000; i++) { const g = 135 + rnd() * 30; c.fillStyle = `rgb(${g},${g},${g})`; c.fillRect(rnd() * 512, rnd() * 512, 2, 2); }
+    for (let fy = 0; fy < N - 1; fy++) { c.fillStyle = 'rgb(200,200,200)'; c.fillRect(0, (fy * cell + cell * 0.86) * k, 512, cell * 0.05 * k); }
+    for (let fy = 0; fy < N - 1; fy++) for (let fx = 0; fx < N; fx++) {
+      const x = (fx * cell + cell * 0.26) * k, y = (fy * cell + cell * 0.2) * k, w = cell * 0.48 * k, hh = cell * 0.6 * k;
+      c.fillStyle = 'rgb(185,185,185)'; c.fillRect(x - 3, y - 3, w + 6, hh + 7);
+      c.fillStyle = 'rgb(60,60,60)'; c.fillRect(x, y, w, hh);
+      c.fillStyle = 'rgb(95,95,95)'; c.fillRect(x + w / 2 - 1, y, 2, hh);
+    }
+    const y0 = (N - 1) * cell * k;
+    for (let fx = 0; fx < N; fx++) { c.fillStyle = 'rgb(70,70,70)'; c.fillRect(fx * cell * k + 4, y0 + 16, cell * k - 8, cell * k - 19); }
+  }
+  const normal = heightToNormal(hc, 3);
+  for (const t of [map, emissive, rm, normal]) t.anisotropy = aniso;
+  return { map, emissive, rm, normal };
 }
 
 function roadTexture(major, aniso) {
@@ -203,6 +237,26 @@ function roadTexture(major, aniso) {
   });
   t.anisotropy = aniso;
   return t;
+}
+
+function asphaltDetail(aniso) {
+  const S = 256, rnd = mulberry32(21);
+  const hc = document.createElement('canvas'); hc.width = hc.height = S;
+  const c = hc.getContext('2d'); c.fillStyle = 'rgb(128,128,128)'; c.fillRect(0, 0, S, S);
+  for (let i = 0; i < 9000; i++) { const g = 90 + rnd() * 90; c.fillStyle = `rgb(${g},${g},${g})`; c.fillRect(rnd() * S, rnd() * S, 1 + rnd() * 2, 1 + rnd() * 2); }
+  for (let i = 0; i < 6; i++) { c.strokeStyle = 'rgba(40,40,40,0.6)'; c.lineWidth = 1.5; c.beginPath(); let x = rnd() * S, y = rnd() * S; c.moveTo(x, y); for (let k = 0; k < 8; k++) { x += (rnd() - 0.5) * 40; y += rnd() * 30; c.lineTo(x, y); } c.stroke(); }
+  const normal = heightToNormal(hc, 1.6); normal.anisotropy = aniso;
+  // Pfützen: G-Kanal = Rauheit (dunkel = glatt/nass)
+  const pc = document.createElement('canvas'); pc.width = pc.height = S;
+  const p = pc.getContext('2d'); p.fillStyle = 'rgb(0,255,0)'; p.fillRect(0, 0, S, S);
+  for (let i = 0; i < 14; i++) {
+    const x = rnd() * S, y = rnd() * S, r = 12 + rnd() * 40;
+    const g = p.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(0,15,0,1)'); g.addColorStop(0.7, 'rgba(0,40,0,0.9)'); g.addColorStop(1, 'rgba(0,255,0,0)');
+    p.fillStyle = g; p.save(); p.translate(x, y); p.scale(1, 0.5 + rnd()); p.translate(-x, -y); p.fillRect(x - r, y - r, r * 2, r * 2); p.restore();
+  }
+  for (const xx of [0.3, 0.7]) { p.fillStyle = 'rgba(0,70,0,0.5)'; p.fillRect(S * xx - 10, 0, 20, S); } // Spurrillen sammeln Wasser
+  const puddles = new THREE.CanvasTexture(pc); puddles.wrapS = puddles.wrapT = THREE.RepeatWrapping;
+  return { normal, puddles };
 }
 
 function groundTexture(aniso) {
@@ -428,7 +482,7 @@ export function createWorld(scene, renderer) {
 
   const fac = facadeTextures(aniso);
   const mats = {
-    wall: new THREE.MeshStandardMaterial({ map: fac.map, vertexColors: true, roughnessMap: fac.rm, metalnessMap: fac.rm, roughness: 1, metalness: 1, emissiveMap: fac.emissive, emissive: 0xffffff, emissiveIntensity: 0 }),
+    wall: new THREE.MeshStandardMaterial({ map: fac.map, vertexColors: true, roughnessMap: fac.rm, metalnessMap: fac.rm, roughness: 1, metalness: 1, emissiveMap: fac.emissive, emissive: 0xffffff, emissiveIntensity: 0, normalMap: fac.normal, normalScale: new THREE.Vector2(1, 1) }),
     roof: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }),
     roadMajor: new THREE.MeshStandardMaterial({ map: roadTexture(true, aniso), roughness: 0.92, metalness: 0, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
     roadMinor: new THREE.MeshStandardMaterial({ map: roadTexture(false, aniso), roughness: 0.92, metalness: 0, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }),
@@ -441,6 +495,8 @@ export function createWorld(scene, renderer) {
     pole: new THREE.MeshStandardMaterial({ color: 0x2f3337, metalness: 0.6, roughness: 0.5 }),
     lampHead: new THREE.MeshBasicMaterial({ color: 0x333333, toneMapped: false }),
   };
+  const asph = asphaltDetail(aniso);
+  for (const m of [mats.roadMajor, mats.roadMinor]) { m.normalMap = asph.normal; m.normalScale = new THREE.Vector2(0.6, 0.6); }
   const poolTex = canvasTex(128, 128, (ctx, w) => { const g = ctx.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, 'rgba(255,200,130,0.9)'); g.addColorStop(1, 'rgba(255,200,130,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, w); }, { repeat: false });
   mats.pool = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, toneMapped: false });
   const base = { road: new THREE.Color(0xffffff), ground: new THREE.Color(0xffffff), park: new THREE.Color(0x4f7d34), sidewalk: new THREE.Color(0xa7a59f) };
@@ -588,14 +644,18 @@ export function createWorld(scene, renderer) {
   }
 
   const snowWhite = new THREE.Color(0xf4f6f8);
-  function applyEnvironment({ night, wet, snow, t, x, z }) {
+  function applyEnvironment({ night, wet, snow, t, x, z, envI = 1 }) {
     if (x !== undefined) { ground.position.x = Math.round(x / 64) * 64; ground.position.z = Math.round(z / 64) * 64; }
     mats.wall.emissiveIntensity = night * 1.6;
     mats.lampHead.color.setRGB(0.25 + night * 5, 0.25 + night * 4.2, 0.25 + night * 2.6);
-    mats.pool.opacity = night * 0.55;
+    mats.pool.opacity = night * (0.55 + wet * 0.5); // auf nasser Straße stärkerer Lichtschein
     for (const m of [mats.roadMajor, mats.roadMinor]) {
-      m.roughness = THREE.MathUtils.lerp(0.92, 0.18, wet);
-      m.metalness = wet * 0.25;
+      // Pfützenkarte erst bei Nässe aktivieren (einmaliges Neukompilieren)
+      const wantPuddles = wet > 0.2;
+      if (!!m.roughnessMap !== wantPuddles) { m.roughnessMap = wantPuddles ? asph.puddles : null; m.needsUpdate = true; }
+      m.roughness = wantPuddles ? THREE.MathUtils.lerp(0.92, 0.75, wet) : 0.92;
+      m.metalness = wet * 0.35;
+      m.envMapIntensity = envI * (1 + wet * 1.5);
       m.color.copy(base.road).multiplyScalar(1 - wet * 0.35).lerp(snowWhite, snow * 0.55);
     }
     mats.sidewalk.color.copy(base.sidewalk).multiplyScalar(1 - wet * 0.3).lerp(snowWhite, snow * 0.85);

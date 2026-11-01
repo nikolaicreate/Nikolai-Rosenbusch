@@ -1,6 +1,7 @@
 // Live-Wetter (Open-Meteo) + Tageszeit (echter Sonnenstand über Berlin) + visuelle Effekte.
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
+import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
 import { mulberry32 } from './geo.js';
 
 const LAT = 52.52, LON = 13.405;
@@ -148,6 +149,25 @@ export class Environment {
     this.snow = new THREE.Points(sng, new THREE.PointsMaterial({ size: 0.22, map: dotTexture(), transparent: true, depthWrite: false, color: 0xffffff }));
     this.snow.frustumCulled = false; this.snow.visible = false; scene.add(this.snow);
 
+    // Linsenreflexe der Sonne
+    const flareTex = (inner, outer, ring = false) => {
+      const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+      const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+      if (ring) { g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.75, 'rgba(255,255,255,0)'); g.addColorStop(0.85, inner); g.addColorStop(1, 'rgba(255,255,255,0)'); }
+      else { g.addColorStop(0, inner); g.addColorStop(0.3, outer); g.addColorStop(1, 'rgba(0,0,0,0)'); }
+      x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+      return new THREE.CanvasTexture(c);
+    };
+    this.flareAnchor = new THREE.Object3D(); scene.add(this.flareAnchor);
+    this.flare = new Lensflare();
+    this.flare.addElement(new LensflareElement(flareTex('rgba(255,250,235,1)', 'rgba(255,200,140,0.35)'), 420, 0, new THREE.Color(1, 0.95, 0.85)));
+    this.flare.addElement(new LensflareElement(flareTex('rgba(255,180,120,0.5)', 'rgba(255,120,60,0.1)'), 70, 0.35));
+    this.flare.addElement(new LensflareElement(flareTex('rgba(140,200,255,0.45)', 'rgba(60,120,255,0.08)'), 110, 0.6));
+    this.flare.addElement(new LensflareElement(flareTex('rgba(255,220,160,0.35)', '', true), 200, 0.85));
+    this.flare.addElement(new LensflareElement(flareTex('rgba(200,255,200,0.3)', 'rgba(60,255,120,0.05)'), 60, 1.0));
+    this.flareAnchor.add(this.flare);
+    this.flareEnabled = true;
+
     this.pmrem = new THREE.PMREMGenerator(renderer);
     this.envScene = new THREE.Scene();
     this.envTimer = 0; this.lastEnvKey = '';
@@ -158,6 +178,7 @@ export class Environment {
     this.sunDir = new THREE.Vector3();
     this.info = {};
   }
+  setShadowRange(r) { const sc = this.sun.shadow.camera; sc.left = -r; sc.right = r; sc.top = r; sc.bottom = -r; sc.updateProjectionMatrix(); }
   setShadowQuality(size) {
     this.sun.shadow.mapSize.set(size, size);
     if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
@@ -223,6 +244,8 @@ export class Environment {
     this.clouds.position.x = camera.position.x; this.clouds.position.z = camera.position.z;
 
     this.stars.material.opacity = night * (1 - overcast);
+    this.flareAnchor.position.copy(camera.position).addScaledVector(dir, 3000);
+    this.flare.visible = this.flareEnabled && alt > -0.01 && overcast < 0.55 && kind !== 'fog';
     this.stars.position.copy(camera.position);
 
     // Niederschlag

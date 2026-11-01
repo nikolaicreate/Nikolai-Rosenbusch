@@ -243,3 +243,28 @@ export function makeCarMaterials(paint) {
     lights: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
   };
 }
+
+/** Sichtbare Scheinwerferkegel (zwei offene Kegel, nach vorn breiter werdend). */
+export function buildBeamGeometry(key) {
+  const p = CAR_TYPES[key], h = p.L / 2;
+  const len = 16, rad = 2.6;
+  const parts = [];
+  for (const sx of [-1, 1]) {
+    const g = new THREE.ConeGeometry(rad, len, 18, 1, true);
+    g.rotateX(-Math.PI / 2);
+    g.translate(sx * (p.W / 2 - 0.35), (p.bus ? 0.75 : p.noseH + 0.05), h + len / 2);
+    parts.push(g);
+  }
+  return mergeGeometries(parts);
+}
+let beamTex = null;
+export function makeBeamMaterial() {
+  if (!beamTex) {
+    const c = document.createElement('canvas'); c.width = 4; c.height = 128;
+    const ctx = c.getContext('2d'); const g = ctx.createLinearGradient(0, 0, 0, 128);
+    g.addColorStop(0, 'rgba(255,244,220,1)'); g.addColorStop(0.35, 'rgba(255,244,220,0.35)'); g.addColorStop(1, 'rgba(255,244,220,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 128);
+    beamTex = new THREE.CanvasTexture(c);
+  }
+  return new THREE.MeshBasicMaterial({ map: beamTex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false });
+}
