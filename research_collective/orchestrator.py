@@ -161,13 +161,14 @@ class Collective:
             stop: threading.Event | None = None) -> int:
         stop = stop or threading.Event()
         done = 0
+        start_tokens = self.kb.total_tokens()  # Budget gilt pro Lauf
         try:
             while (max_cycles is None or done < max_cycles) and not stop.is_set():
-                if token_budget is not None and self.kb.total_tokens() >= token_budget:
-                    log.info("Token-Budget erreicht (%d) – Stopp.", token_budget)
+                if token_budget is not None and self.kb.total_tokens() - start_tokens >= token_budget:
+                    log.info("Token-Budget dieses Laufs erreicht (%d) – Stopp.", token_budget)
                     break
                 if not self.run_cycle():
-                    log.info("Forschungsagenda leer – Stopp. Neue Fragen mit `rc ask` hinzufügen.")
+                    log.info("Forschungsagenda leer – Stopp. Neue Fragen mit `kollektiv ask` hinzufügen.")
                     break
                 done += 1
                 if pause:

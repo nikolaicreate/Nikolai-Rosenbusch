@@ -31,6 +31,25 @@ Die Kernregel lautet: **Zustimmung allein erzeugt kein Wissen.** Den Status `kon
 nur, wenn eine echte, auflösbare DOI sie stützt. Das soll verhindern, dass sich drei Modelle mit ähnlichen
 Trainingsdaten gegenseitig ihre gemeinsamen Irrtümer bestätigen.
 
+## Echter Zusammenschluss, nonstop in der Cloud (GitHub Actions)
+
+Hier arbeiten Claude, ChatGPT und Grok über ihre APIs zusammen, ohne Kopieren, ohne eigenen Server und ohne Installation.
+
+1. **API-Schlüssel hinterlegen:** im Repo unter *Settings → Secrets and variables → Actions → New repository secret*
+   `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` und `XAI_API_KEY` eintragen (mindestens zwei).
+2. **Workflow aktivieren:** `.github/workflows/forschung.yml` muss auf dem Standard-Branch des Repos liegen
+   (Pull Request mergen oder den Standard-Branch umstellen).
+3. **Erste Frage stellen:** *Actions → Forschung nonstop → Run workflow*, Frage eintragen, starten.
+
+Danach forscht das Kollektiv **alle 4 Stunden** selbstständig weiter. Bei jedem Lauf arbeitet es die
+wachsende Agenda ab, höchstens mit dem eingestellten Token-Budget (Standard 400 000 pro Lauf).
+Das Wissen sammelt sich auf dem Branch **`wissen`** in `REPORT.md`, `STATS.json` und `research.db`.
+Den Takt änderst du in der `cron`-Zeile des Workflows, Zyklen und Budget mit den Repository-Variablen
+`ZYKLEN` und `TOKEN_BUDGET`. Modellnamen kannst du mit den Variablen `CLAUDE_MODEL`, `OPENAI_MODEL` und `XAI_MODEL` setzen.
+
+**Kosten:** Ein Zyklus besteht aus etwa 7 Modellaufrufen. Bei 6 Läufen am Tag mit je 3 Zyklen sind das
+rund 125 Aufrufe täglich auf deine drei API-Konten. Lege bei den Anbietern Ausgabelimits fest.
+
 ## Sofort loslegen
 
 **Ohne Installation (im Browser):** [Forschungskollektiv auf claude.ai](https://claude.ai/artifact/4GgzfuubKJASACR3nUir6r). Den Quelltext findest du in `webapp/forschungskollektiv.html`.
@@ -57,7 +76,7 @@ cp .env.example .env    # mindestens zwei der drei API-Schlüssel eintragen
 ## Web-App
 
 ```bash
-rc web                  # → http://127.0.0.1:8765
+kollektiv web                  # → http://127.0.0.1:8765
 ```
 
 Was die Oberfläche bietet:
@@ -75,13 +94,13 @@ nimmt der Server nur mit Token-Budget an. Antworten der Modelle werden im Browse
 ## Kommandozeile
 
 ```bash
-rc run --demo --cycles 3 --pause 0         # Offline-Demo ohne Schlüssel und ohne Kosten
-rc ask "Ist Kants Kategorienlehre mit der Kognitionswissenschaft vereinbar?"
-rc run --cycles 5                          # fünf Zyklen
-rc run --forever --token-budget 2000000    # nonstop, bis das Budget verbraucht ist
-rc report                                  # → knowledge/REPORT.md
-rc stats
-rc search "Kant"
+kollektiv run --demo --cycles 3 --pause 0         # Offline-Demo ohne Schlüssel und ohne Kosten
+kollektiv ask "Ist Kants Kategorienlehre mit der Kognitionswissenschaft vereinbar?"
+kollektiv run --cycles 5                          # fünf Zyklen
+kollektiv run --forever --token-budget 2000000    # nonstop, bis das Budget verbraucht ist
+kollektiv report                                  # → knowledge/REPORT.md
+kollektiv stats
+kollektiv search "Kant"
 ```
 
 **Nonstop-Betrieb:** `--forever` läuft weiter, bis die Agenda leer ist, das Token-Budget erreicht ist oder

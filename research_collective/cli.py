@@ -1,4 +1,4 @@
-"""Kommandozeile: rc ask | run | report | stats | search"""
+"""Kommandozeile: kollektiv ask | run | report | stats | search"""
 from __future__ import annotations
 
 import argparse
@@ -48,7 +48,7 @@ def write_report(kb: KnowledgeBase, out: Path) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     load_dotenv()
-    ap = argparse.ArgumentParser(prog="rc", description="Grok + Claude + ChatGPT als Forschungsgemeinschaft")
+    ap = argparse.ArgumentParser(prog="kollektiv", description="Grok + Claude + ChatGPT als Forschungsgemeinschaft")
     ap.add_argument("--db", default="research.db", help="Pfad zur Wissensbasis (SQLite)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> None:
     r = sub.add_parser("run", help="Forschungszyklen ausführen")
     r.add_argument("--cycles", type=int, default=1, help="Anzahl Zyklen (Standard 1)")
     r.add_argument("--forever", action="store_true", help="Endlos, bis Agenda leer, Budget erreicht oder Strg+C")
-    r.add_argument("--token-budget", type=int, help="Stopp ab dieser Gesamtzahl an Tokens (dringend empfohlen)")
+    r.add_argument("--token-budget", type=int, help="Höchstens so viele Tokens in diesem Lauf (dringend empfohlen)")
     r.add_argument("--pause", type=float, default=5.0, help="Sekunden zwischen Zyklen")
     r.add_argument("--max-depth", type=int, default=4, help="Maximale Tiefe abgeleiteter Fragen")
     r.add_argument("--offline-doi", action="store_true", help="DOIs nicht online prüfen (alles gilt als unbelegt)")
@@ -86,9 +86,13 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "run":
         agents = [DemoAgent(n) for n in ("Claude", "ChatGPT", "Grok")] if args.demo else build_agents()
         print("Forschende:", ", ".join(a.name for a in agents) or "keine")
+        if len(agents) < 2:
+            raise SystemExit("Fehler: Mindestens zwei API-Schlüssel nötig "
+                             "(ANTHROPIC_API_KEY, OPENAI_API_KEY, XAI_API_KEY) – oder --demo verwenden.")
         coll = Collective(agents, kb, max_depth=args.max_depth, offline_doi=args.offline_doi or args.demo)
+        before = kb.total_tokens()
         n = coll.run(None if args.forever else args.cycles, args.token_budget, args.pause)
-        print(f"{n} Zyklus/Zyklen abgeschlossen. Tokens gesamt: {kb.total_tokens()}")
+        print(f"{n} Zyklus/Zyklen abgeschlossen. Tokens in diesem Lauf: {kb.total_tokens() - before}")
     elif args.cmd == "report":
         write_report(kb, Path(args.out))
         print(f"Bericht geschrieben: {args.out}")
@@ -108,6 +112,10 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "search":
         for c in kb.search(args.term):
             print(f"#{c['id']} [{c['status']}/{c['evidence_type']}] {c['author']}: {c['text']}")
+
+    # WAL-Inhalt in die Hauptdatei schreiben, damit research.db allein vollständig ist (wichtig für Git).
+    kb.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    kb.db.close()
 
 
 if __name__ == "__main__":

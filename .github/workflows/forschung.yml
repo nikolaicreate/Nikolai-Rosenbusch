@@ -1,0 +1,95 @@
+# Das Forschungskollektiv als echter Zusammenschluss: Claude, ChatGPT und Grok arbeiten über ihre APIs
+# zusammen, ohne Kopieren, in der Cloud von GitHub. Das Wissen wächst auf dem Branch "wissen".
+#
+# Einrichtung (einmalig): Settings → Secrets and variables → Actions → "New repository secret":
+#   ANTHROPIC_API_KEY, OPENAI_API_KEY, XAI_API_KEY   (mindestens zwei)
+# Optional unter "Variables": CLAUDE_MODEL, OPENAI_MODEL, XAI_MODEL, ZYKLEN, TOKEN_BUDGET
+name: Forschung nonstop
+
+on:
+  schedule:
+    - cron: "17 */4 * * *"        # alle 4 Stunden (UTC); Zeile löschen = nur noch manuell
+  workflow_dispatch:
+    inputs:
+      frage:
+        description: "Neue Forschungsfrage (optional – sonst arbeitet das Kollektiv seine Agenda ab)"
+        required: false
+        default: ""
+      zyklen:
+        description: "Zyklen in diesem Lauf"
+        required: false
+        default: "3"
+      token_budget:
+        description: "Höchstens so viele Tokens in diesem Lauf"
+        required: false
+        default: "400000"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: forschung
+  cancel-in-progress: false
+
+jobs:
+  forschen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v4
+        with:
+          path: code
+
+      - name: Wissensstand holen (Branch "wissen")
+        uses: actions/checkout@v4
+        with:
+          ref: wissen
+          path: wissen
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installieren
+        run: pip install -q ./code
+
+      - name: Forschen
+        working-directory: wissen
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+          XAI_MODEL: ${{ vars.XAI_MODEL }}
+          FRAGE: ${{ inputs.frage }}
+          ZYKLEN: ${{ inputs.zyklen || vars.ZYKLEN || '3' }}
+          BUDGET: ${{ inputs.token_budget || vars.TOKEN_BUDGET || '400000' }}
+        run: |
+          # Leere Variablen entfernen, damit die Standardmodelle greifen
+          for v in CLAUDE_MODEL OPENAI_MODEL XAI_MODEL; do [ -z "${!v}" ] && unset "$v"; done
+          if [ -n "$FRAGE" ]; then kollektiv ask "$FRAGE" --priority 1; fi
+          kollektiv run --cycles "$ZYKLEN" --token-budget "$BUDGET" --pause 1
+          kollektiv report --out REPORT.md
+          kollektiv stats > STATS.json
+
+      - name: Wissen sichern
+        if: always()
+        working-directory: wissen
+        run: |
+          [ -f research.db ] || exit 0
+          git config user.name "Forschungskollektiv"
+          git config user.email "forschungskollektiv@users.noreply.github.com"
+          git add research.db REPORT.md STATS.json
+          git diff --cached --quiet && { echo "Nichts Neues."; exit 0; }
+          git commit -q -m "Forschungslauf $(date -u +'%Y-%m-%d %H:%M') UTC"
+          git push origin HEAD:wissen
+
+      - name: Zusammenfassung
+        if: always()
+        working-directory: wissen
+        run: |
+          [ -f STATS.json ] || exit 0
+          { echo "## Forschungskollektiv"; echo; echo '```json'; cat STATS.json; echo '```';
+            echo; echo "Bericht: Branch **wissen** → REPORT.md"; } >> "$GITHUB_STEP_SUMMARY"
