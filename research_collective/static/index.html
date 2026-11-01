@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forschungskollektiv</title>
+<style>
+:root {
+  --bg: #f6f4ef; --surface: #ffffff; --surface-2: #f0ede6; --border: #e2ddd2;
+  --text: #1f1d1a; --muted: #6b665d; --accent: #3b4f8f; --accent-text: #ffffff;
+  --konsens: #2f7d4f; --plausibel: #3b6fb5; --umstritten: #b07a12; --widerlegt: #b33a3a; --proposed: #85807a;
+  --claude: #c2643f; --chatgpt: #1f8a76; --grok: #5b5bb0;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.04);
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15161a; --surface: #1d1f24; --surface-2: #25282e; --border: #33363d;
+    --text: #ebe8e2; --muted: #9b978f; --accent: #8fa3e6; --accent-text: #11131a;
+    --konsens: #5cc387; --plausibel: #7aa7e8; --umstritten: #e0ad4a; --widerlegt: #ea7a7a; --proposed: #9b978f;
+    --claude: #e08a66; --chatgpt: #4cc3aa; --grok: #9a9af0; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15161a; --surface: #1d1f24; --surface-2: #25282e; --border: #33363d;
+  --text: #ebe8e2; --muted: #9b978f; --accent: #8fa3e6; --accent-text: #11131a;
+  --konsens: #5cc387; --plausibel: #7aa7e8; --umstritten: #e0ad4a; --widerlegt: #ea7a7a; --proposed: #9b978f;
+  --claude: #e08a66; --chatgpt: #4cc3aa; --grok: #9a9af0; --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 var(--sans); }
+button, input, textarea, select { font: inherit; color: inherit; }
+a { color: var(--accent); }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 0 16px; }
+
+header { border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 5; }
+header .wrap { display: flex; align-items: center; gap: 16px; padding-top: 12px; padding-bottom: 12px; flex-wrap: wrap; }
+h1 { font: 600 1.25rem/1.2 var(--serif); margin: 0; letter-spacing: .01em; }
+h1 small { display: block; font: 400 .78rem var(--sans); color: var(--muted); letter-spacing: 0; }
+.agents { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px;
+  border: 1px solid var(--border); font-size: .8rem; background: var(--surface-2); white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--muted)); flex: none; }
+.chip.off { opacity: .45; }
+.spacer { flex: 1; }
+.status { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); }
+.pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.running .pulse { background: var(--konsens); animation: pulse 1.4s infinite; }
+@keyframes pulse { 0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--konsens) 60%, transparent)} 100%{box-shadow:0 0 0 10px transparent} }
+.icon-btn { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 9px; cursor: pointer; }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); min-width: 0; }
+.tile .label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.tile .value { font: 600 1.5rem/1.3 var(--sans); font-variant-numeric: tabular-nums; }
+.tile .sub { font-size: .8rem; color: var(--muted); }
+.bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--surface-2); margin-top: 8px; }
+.bar span { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .75rem; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+
+.layout { display: grid; grid-template-columns: 360px minmax(0,1fr); gap: 16px; align-items: start; padding-bottom: 32px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+.panel + .panel { margin-top: 16px; }
+.panel h2 { font: 600 .8rem var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0; padding: 12px 14px 0; }
+.panel .body { padding: 10px 14px 14px; }
+textarea, input[type=number], input[type=search] { width: 100%; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+textarea { resize: vertical; min-height: 72px; }
+textarea:focus, input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent); outline-offset: 1px; }
+.row { display: flex; gap: 8px; align-items: center; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+label.f { display: block; font-size: .78rem; color: var(--muted); margin-bottom: 3px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: .88rem; margin-top: 8px; }
+.btn { text-decoration: none; display: inline-block; border: 1px solid var(--border); background: var(--surface-2); border-radius: 8px; padding: 7px 14px; cursor: pointer; font-weight: 500; }
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.btn.danger { color: var(--widerlegt); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.msg { font-size: .82rem; margin-top: 8px; min-height: 1.2em; }
+.msg.err { color: var(--widerlegt); }
+.hint { font-size: .78rem; color: var(--muted); margin-top: 6px; }
+
+.tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.tab { border: none; background: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; color: var(--muted); font-size: .85rem; }
+.tab[aria-selected=true] { background: var(--surface-2); color: var(--text); font-weight: 600; }
+.qlist { list-style: none; margin: 0; padding: 0; max-height: 52vh; overflow-y: auto; }
+.qlist li button { width: 100%; text-align: left; border: none; background: none; padding: 8px 8px; border-radius: 8px; cursor: pointer; display: flex; gap: 8px; align-items: flex-start; }
+.qlist li button:hover { background: var(--surface-2); }
+.qlist li button[aria-current=true] { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.qlist .qt { flex: 1; min-width: 0; font-size: .88rem; overflow-wrap: anywhere; }
+.qlist .meta { font-size: .72rem; color: var(--muted); white-space: nowrap; }
+.depth { font: 600 .68rem var(--mono); color: var(--muted); padding-top: 3px; }
+.empty { color: var(--muted); font-size: .88rem; padding: 8px; }
+
+.detail { padding: 18px 20px 22px; min-height: 300px; }
+.crumb { font-size: .8rem; color: var(--muted); margin-bottom: 6px; }
+.crumb button { background: none; border: none; color: var(--accent); cursor: pointer; padding: 0; font: inherit; text-align: left; }
+.detail h3 { font: 600 1.35rem/1.35 var(--serif); margin: 0 0 6px; overflow-wrap: anywhere; }
+.qmeta { font-size: .8rem; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.section-h { font: 600 .78rem var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 22px 0 8px; display: flex; align-items: center; gap: 8px; }
+.synth { background: var(--surface-2); border-radius: 10px; padding: 12px 16px; font-family: var(--serif); font-size: 1rem; line-height: 1.6; overflow-wrap: anywhere; }
+.synth h4, .synth h5 { font-family: var(--sans); margin: 10px 0 4px; font-size: .95rem; }
+.synth p { margin: 6px 0; }
+.synth ul { margin: 6px 0; padding-left: 20px; }
+.problems { margin: 8px 0 0; padding-left: 20px; font-size: .9rem; }
+
+.claim { border: 1px solid var(--border); border-left: 4px solid var(--sc, var(--proposed)); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; background: var(--surface); }
+.claim .top { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+.badge { font-size: .72rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--sc) 16%, transparent); color: var(--sc); text-transform: uppercase; letter-spacing: .04em; }
+.ev { font-size: .72rem; padding: 1px 8px; border-radius: 999px; border: 1px dashed var(--border); color: var(--muted); }
+.claim .text { overflow-wrap: anywhere; }
+.conf { display: inline-flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--muted); margin-left: auto; }
+.conf .track { width: 60px; height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.conf .track span { display: block; height: 100%; background: var(--muted); }
+.dois { font-size: .78rem; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-family: var(--mono); }
+.dois .bad { color: var(--widerlegt); text-decoration: line-through; }
+details.reviews { margin-top: 8px; font-size: .85rem; }
+details.reviews summary { cursor: pointer; color: var(--muted); font-size: .8rem; }
+.verdicts { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
+.verdicts i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.rv { border-top: 1px solid var(--border); padding: 6px 0 2px; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+.rv .who { font-weight: 600; font-size: .8rem; white-space: nowrap; }
+.rv .v { font-size: .72rem; font-weight: 600; text-transform: uppercase; }
+.rv .crit { grid-column: 1 / -1; color: var(--text); overflow-wrap: anywhere; }
+.children { list-style: none; padding: 0; margin: 0; }
+.children button { background: none; border: none; color: var(--accent); cursor: pointer; padding: 3px 0; text-align: left; font: inherit; }
+.placeholder { text-align: center; color: var(--muted); padding: 60px 20px; font-family: var(--serif); font-size: 1.05rem; }
+
+.logp summary { cursor: pointer; padding: 10px 14px; font: 600 .8rem var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.log { font: .78rem/1.5 var(--mono); max-height: 240px; overflow-y: auto; padding: 0 14px 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.log .WARNING { color: var(--umstritten); }
+.log .ERROR { color: var(--widerlegt); }
+.search-results { list-style: none; padding: 0; margin: 8px 0 0; font-size: .85rem; max-height: 240px; overflow-y: auto; }
+.search-results li { padding: 6px 0; border-top: 1px solid var(--border); }
+.search-results button { background: none; border: none; color: var(--accent); cursor: pointer; padding: 0; font-size: .75rem; text-align: left; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0,1fr); }
+  .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .qlist { max-height: 40vh; }
+}
+@media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } .detail { padding: 14px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Forschungskollektiv<small>Grok · Claude · ChatGPT – Peer-Review mit DOI-Prüfung</small></h1>
+    <div class="agents" id="agents"></div>
+    <div class="spacer"></div>
+    <div class="status" id="status"><span class="pulse"></span><span id="status-text">Bereit</span></div>
+    <a class="btn" href="/api/report.md" download>Bericht ↓</a>
+    <button class="icon-btn" id="theme" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten">◐</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="stats" aria-label="Kennzahlen">
+    <div class="tile"><div class="label">Fragen</div><div class="value" id="s-q">0</div><div class="sub" id="s-q-sub">–</div></div>
+    <div class="tile"><div class="label">Thesen</div><div class="value" id="s-c">0</div>
+      <div class="bar" id="s-c-bar"></div><div class="legend" id="s-c-legend"></div></div>
+    <div class="tile"><div class="label">Reviews</div><div class="value" id="s-r">0</div><div class="sub" id="s-r-sub">–</div></div>
+    <div class="tile"><div class="label">Tokens</div><div class="value" id="s-t">0</div><div class="sub" id="s-t-sub">–</div></div>
+  </section>
+
+  <div class="layout">
+    <aside>
+      <section class="panel">
+        <h2>Neue Forschungsfrage</h2>
+        <form class="body" id="ask-form">
+          <textarea id="ask-text" placeholder="z. B. Ist Kants Kategorienlehre mit der Kognitionswissenschaft vereinbar?" required minlength="5" maxlength="2000"></textarea>
+          <div class="row" style="margin-top:8px">
+            <label class="f" for="ask-prio" style="margin:0">Priorität</label>
+            <input type="number" id="ask-prio" min="0" max="1" step="any" value="1" style="width:80px">
+            <div class="spacer"></div>
+            <button class="btn primary" type="submit">Auf die Agenda</button>
+          </div>
+          <div class="msg" id="ask-msg" role="status"></div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Forschungslauf</h2>
+        <form class="body" id="run-form">
+          <div class="grid2">
+            <div><label class="f" for="run-cycles">Zyklen</label><input type="number" id="run-cycles" min="1" value="3"></div>
+            <div><label class="f" for="run-depth">Max. Tiefe</label><input type="number" id="run-depth" min="0" max="10" value="4"></div>
+            <div><label class="f" for="run-budget">Token-Budget</label><input type="number" id="run-budget" min="1000" step="any" placeholder="z. B. 500000"></div>
+            <div><label class="f" for="run-pause">Pause (s)</label><input type="number" id="run-pause" min="0" step="any" value="2"></div>
+          </div>
+          <label class="check"><input type="checkbox" id="run-forever"> Dauerbetrieb (nonstop, nur mit Budget)</label>
+          <label class="check"><input type="checkbox" id="run-demo"> Demo-Modus (offline, ohne Kosten)</label>
+          <div class="row" style="margin-top:12px">
+            <button class="btn primary" type="submit" id="run-start">▶ Starten</button>
+            <button class="btn danger" type="button" id="run-stop" disabled>■ Stoppen</button>
+          </div>
+          <div class="msg" id="run-msg" role="status"></div>
+          <div class="hint">Stopp greift nach dem laufenden Zyklus. Jeder Schritt wird sofort gespeichert.</div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Agenda</h2>
+        <div class="body">
+          <div class="tabs" role="tablist">
+            <button class="tab" role="tab" data-f="open" aria-selected="true">Offen</button>
+            <button class="tab" role="tab" data-f="done" aria-selected="false">Erforscht</button>
+            <button class="tab" role="tab" data-f="all" aria-selected="false">Alle</button>
+          </div>
+          <ul class="qlist" id="qlist"></ul>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Wissen durchsuchen</h2>
+        <form class="body" id="search-form">
+          <input type="search" id="search-q" placeholder="Begriff in Thesen …">
+          <ul class="search-results" id="search-results"></ul>
+        </form>
+      </section>
+    </aside>
+
+    <div>
+      <section class="panel detail" id="detail" aria-live="polite">
+        <div class="placeholder">Wähle links eine Frage – oder stelle die erste.<br>Das Kollektiv wird sie nicht schonen.</div>
+      </section>
+      <details class="panel logp" open>
+        <summary>Live-Protokoll</summary>
+        <div class="log" id="log"></div>
+      </details>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const STATUS = { konsens: "Konsens", plausibel: "plausibel", umstritten: "umstritten", widerlegt: "widerlegt", proposed: "in Prüfung" };
+const EV = { belegt: "belegt (DOI)", interpretiert: "interpretiert", spekuliert: "spekuliert", zu_pruefen: "DOI nicht auflösbar" };
+const VERDICT = { support: ["stützt", "konsens"], challenge: ["hinterfragt", "umstritten"], refute: ["widerlegt", "widerlegt"] };
+const AGENT_COLOR = { Claude: "var(--claude)", ChatGPT: "var(--chatgpt)", Grok: "var(--grok)" };
+let state = { filter: "open", selected: null, logSince: 0, lastSig: "", running: false };
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (n) => Number(n || 0).toLocaleString("de-DE");
+const agentChip = (n) => `<span class="chip" style="--c:${AGENT_COLOR[n] || "var(--muted)"}"><span class="dot"></span>${esc(n)}</span>`;
+
+// Minimaler, sicherer Markdown-Renderer: erst escapen, dann wenige Formate erlauben.
+function md(src) {
+  const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>").replace(/`([^`]+)`/g, "<code>$1</code>");
+  let html = "", list = false;
+  for (const raw of String(src || "").split("\n")) {
+    const line = raw.trimEnd();
+    const li = line.match(/^\s*[-*•]\s+(.*)/) || line.match(/^\s*\d+[.)]\s+(.*)/);
+    if (li) { if (!list) { html += "<ul>"; list = true; } html += `<li>${inline(li[1])}</li>`; continue; }
+    if (list) { html += "</ul>"; list = false; }
+    const h = line.match(/^(#{1,4})\s+(.*)/);
+    if (h) html += `<h${h[1].length < 3 ? 4 : 5}>${inline(h[2])}</h${h[1].length < 3 ? 4 : 5}>`;
+    else if (line.trim()) html += `<p>${inline(line)}</p>`;
+  }
+  return html + (list ? "</ul>" : "");
+}
+
+async function api(path, body) {
+  const opt = body ? { method: "POST", headers: { "Content-Type": "application/json", "X-Requested-With": "rc" }, body: JSON.stringify(body) } : {};
+  const r = await fetch(path, opt);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
+}
+
+// ---------- Zustand & Kennzahlen ----------
+async function refreshState() {
+  let s;
+  try { s = await api(`/api/state?log_since=${state.logSince}`); } catch { $("#status-text").textContent = "Server nicht erreichbar"; return; }
+  const run = s.runner || {};
+  state.running = !!run.running;
+  $("#status").classList.toggle("running", state.running);
+  $("#status-text").textContent = state.running
+    ? `Forscht${run.demo ? " (Demo)" : ""} · ${run.completed || 0} Zyklen fertig` : "Bereit";
+  $("#run-start").disabled = state.running; $("#run-stop").disabled = !state.running;
+
+  const active = state.running ? run.agents : s.configured_agents;
+  $("#agents").innerHTML = ["Claude", "ChatGPT", "Grok"].map((n) =>
+    `<span class="chip ${active.includes(n) ? "" : "off"}" style="--c:${AGENT_COLOR[n]}" title="${active.includes(n) ? "aktiv" : "kein API-Schlüssel"}"><span class="dot"></span>${n}</span>`).join("");
+
+  const st = s.stats, fq = st.fragen || {}, th = st.thesen || {};
+  $("#s-q").textContent = fmt((fq.open || 0) + (fq.done || 0) + (fq.skipped || 0));
+  $("#s-q-sub").textContent = `${fmt(fq.open)} offen · ${fmt(fq.done)} erforscht`;
+  const total = Object.values(th).reduce((a, b) => a + b, 0);
+  $("#s-c").textContent = fmt(total);
+  const order = ["konsens", "plausibel", "umstritten", "widerlegt", "proposed"];
+  $("#s-c-bar").innerHTML = total ? order.filter((k) => th[k]).map((k) => `<span style="width:${(th[k] / total) * 100}%;background:var(--${k})" title="${STATUS[k]}: ${th[k]}"></span>`).join("") : "";
+  $("#s-c-legend").innerHTML = order.filter((k) => th[k]).map((k) => `<span><i style="background:var(--${k})"></i>${STATUS[k]} ${th[k]}</span>`).join("");
+  $("#s-r").textContent = fmt(st.reviews);
+  const ev = st.evidenz || {};
+  $("#s-r-sub").textContent = `${fmt(ev.belegt)} DOI-belegt · ${fmt(ev.zu_pruefen)} DOI-Fehler`;
+  $("#s-t").textContent = fmt(s.total_tokens);
+  $("#s-t-sub").textContent = Object.entries(st.tokens_pro_agent || {}).map(([a, t]) => `${a} ${fmt(t)}`).join(" · ") || "–";
+
+  if (s.log.length) {
+    const box = $("#log"), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 30;
+    for (const l of s.log) { const d = document.createElement("div"); d.className = l.level; d.textContent = l.text; box.appendChild(d); state.logSince = l.id; }
+    while (box.children.length > 300) box.firstChild.remove();
+    if (atBottom) box.scrollTop = box.scrollHeight;
+  }
+  const sig = JSON.stringify([fq, th, st.reviews]);
+  if (sig !== state.lastSig) { state.lastSig = sig; refreshQuestions(); if (state.selected) showQuestion(state.selected, true); }
+}
+
+// ---------- Agenda ----------
+async function refreshQuestions() {
+  const qs = await api("/api/questions").catch(() => []);
+  const list = qs.filter((q) => state.filter === "all" || q.status === state.filter);
+  $("#qlist").innerHTML = list.length ? list.map((q) => `
+    <li><button data-id="${q.id}" aria-current="${q.id === state.selected}">
+      <span class="depth">T${q.depth}</span>
+      <span class="qt">${esc(q.text)}</span>
+      <span class="meta">${q.status === "open" ? "P " + Number(q.priority).toFixed(2) : q.n_claims + " Thesen"}</span>
+    </button></li>`).join("") : `<li class="empty">${state.filter === "open" ? "Agenda leer – stelle eine Frage." : "Noch nichts."}</li>`;
+}
+$("#qlist").addEventListener("click", (e) => { const b = e.target.closest("button[data-id]"); if (b) showQuestion(+b.dataset.id); });
+document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", x === t));
+  state.filter = t.dataset.f; refreshQuestions();
+}));
+
+// ---------- Detailansicht ----------
+async function showQuestion(id, quiet) {
+  let d;
+  try { d = await api(`/api/question?id=${id}`); } catch (e) { if (!quiet) $("#detail").innerHTML = `<div class="placeholder">${esc(e.message)}</div>`; return; }
+  const scroll = window.scrollY;
+  state.selected = id;
+  document.querySelectorAll("#qlist button").forEach((b) => b.setAttribute("aria-current", +b.dataset.id === id));
+  const q = d.question, syn = d.syntheses[0];
+  const statusLabel = { open: "offen", done: "erforscht", skipped: "zurückgestellt" }[q.status] || q.status;
+  const openIds = new Set([...document.querySelectorAll("details.reviews[open]")].map((x) => x.dataset.cid));
+  $("#detail").innerHTML = `
+    ${d.parent ? `<div class="crumb">abgeleitet aus <button data-q="${d.parent.id}">#${d.parent.id} ${esc(d.parent.text)}</button></div>` : ""}
+    <h3>${esc(q.text)}</h3>
+    <div class="qmeta"><span>#${q.id}</span><span>Status: ${statusLabel}</span><span>Tiefe ${q.depth}</span><span>Priorität ${Number(q.priority).toFixed(2)}</span><span>Quelle: ${esc(q.source)}</span></div>
+    ${syn ? `<div class="section-h">Kritische Synthese ${agentChip(syn.moderator)}</div><div class="synth">${md(syn.text)}</div>
+      ${syn.open_problems.length ? `<div class="section-h">Offene Probleme</div><ul class="problems">${syn.open_problems.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : ""}`
+      : q.status === "open" ? `<div class="synth"><p>Noch nicht erforscht – steht auf der Agenda.</p></div>` : ""}
+    ${d.claims.length ? `<div class="section-h">Thesen (${d.claims.length})</div>${d.claims.map((c) => claimCard(c, openIds.has(String(c.id)))).join("")}` : ""}
+    ${d.children.length ? `<div class="section-h">Folgefragen</div><ul class="children">${d.children.map((c) => `<li><button data-q="${c.id}">→ ${esc(c.text)}</button> <span class="meta" style="color:var(--muted);font-size:.75rem">${c.status === "done" ? "erforscht" : "offen"}</span></li>`).join("")}</ul>` : ""}`;
+  if (quiet) window.scrollTo(0, scroll);
+}
+function claimCard(c, open) {
+  const verified = new Set(c.verified_dois);
+  const dois = c.dois.map((x) => verified.has(x.replace(/^https?:\/\/(dx\.)?doi\.org\//, "").replace(/^doi:/, "").trim())
+    ? `<a href="https://doi.org/${encodeURI(x)}" target="_blank" rel="noopener noreferrer">✓ ${esc(x)}</a>` : `<span class="bad" title="nicht auflösbar">✗ ${esc(x)}</span>`).join("");
+  const conf = c.confidence == null ? "" : `<span class="conf">Konfidenz <span class="track"><span style="width:${c.confidence * 100}%"></span></span>${Math.round(c.confidence * 100)}%</span>`;
+  const rv = c.reviews;
+  return `<article class="claim" style="--sc:var(--${c.status})">
+    <div class="top"><span class="badge">${STATUS[c.status] || esc(c.status)}</span><span class="ev">${EV[c.evidence_type] || esc(c.evidence_type)}</span>${agentChip(c.author)}${conf}</div>
+    <div class="text">${esc(c.text)}</div>
+    ${dois ? `<div class="dois">${dois}</div>` : ""}
+    ${rv.length ? `<details class="reviews" data-cid="${c.id}" ${open ? "open" : ""}><summary>${rv.length} Review${rv.length > 1 ? "s" : ""}<span class="verdicts">${rv.map((r) => `<i style="background:var(--${VERDICT[r.verdict]?.[1] || "proposed"})" title="${esc(r.reviewer)}: ${VERDICT[r.verdict]?.[0] || ""}"></i>`).join("")}</span></summary>
+      ${rv.map((r) => `<div class="rv"><span class="who" style="color:${AGENT_COLOR[r.reviewer] || "inherit"}">${esc(r.reviewer)}</span><span class="v" style="color:var(--${VERDICT[r.verdict]?.[1]})">${VERDICT[r.verdict]?.[0] || esc(r.verdict)}</span><div class="crit">${esc(r.critique)}</div></div>`).join("")}
+    </details>` : ""}
+  </article>`;
+}
+$("#detail").addEventListener("click", (e) => { const b = e.target.closest("button[data-q]"); if (b) { showQuestion(+b.dataset.q); window.scrollTo({ top: 0, behavior: "smooth" }); } });
+
+// ---------- Formulare ----------
+$("#ask-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("#ask-msg"); msg.className = "msg";
+  try {
+    const r = await api("/api/ask", { question: $("#ask-text").value, priority: +$("#ask-prio").value });
+    msg.textContent = r.duplicate ? "Diese Frage steht schon auf der Agenda." : `Frage #${r.id} aufgenommen.`;
+    if (!r.duplicate) { $("#ask-text").value = ""; refreshQuestions(); showQuestion(r.id); }
+  } catch (err) { msg.className = "msg err"; msg.textContent = err.message; }
+});
+$("#run-forever").addEventListener("change", (e) => { $("#run-cycles").disabled = e.target.checked; });
+$("#run-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("#run-msg"); msg.className = "msg";
+  try {
+    await api("/api/run", { cycles: +$("#run-cycles").value, forever: $("#run-forever").checked,
+      token_budget: $("#run-budget").value ? +$("#run-budget").value : null, max_depth: +$("#run-depth").value,
+      pause: +$("#run-pause").value, demo: $("#run-demo").checked });
+    msg.textContent = "Lauf gestartet."; refreshState();
+  } catch (err) { msg.className = "msg err"; msg.textContent = err.message; }
+});
+$("#run-stop").addEventListener("click", async () => { await api("/api/stop", {}); $("#run-msg").textContent = "Stopp angefordert – der laufende Zyklus wird noch beendet."; });
+$("#search-form").addEventListener("submit", (e) => e.preventDefault());
+let searchT;
+$("#search-q").addEventListener("input", (e) => {
+  clearTimeout(searchT);
+  searchT = setTimeout(async () => {
+    const term = e.target.value.trim();
+    if (term.length < 2) { $("#search-results").innerHTML = ""; return; }
+    const res = await api(`/api/search?q=${encodeURIComponent(term)}`).catch(() => []);
+    $("#search-results").innerHTML = res.length ? res.map((c) => `<li><span class="badge" style="--sc:var(--${c.status})">${STATUS[c.status] || ""}</span> ${esc(c.text)}<br><button data-q="${c.question_id}">↳ ${esc(c.question)}</button></li>`).join("") : `<li class="empty">Keine Treffer.</li>`;
+  }, 250);
+});
+$("#search-results").addEventListener("click", (e) => { const b = e.target.closest("button[data-q]"); if (b) showQuestion(+b.dataset.q); });
+
+// ---------- Theme ----------
+try { const t = localStorage.getItem("rc-theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+$("#theme").addEventListener("click", () => {
+  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("rc-theme", document.documentElement.dataset.theme); } catch {}
+});
+
+refreshState(); refreshQuestions();
+setInterval(refreshState, 2000);
+</script>
+</body>
+</html>

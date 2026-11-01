@@ -17,3 +17,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["research_collective"]
+
+[tool.setuptools.package-data]
+research_collective = ["static/*.html"]

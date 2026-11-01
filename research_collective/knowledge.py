@@ -53,6 +53,9 @@ class KnowledgeBase:
     def __init__(self, path: str = "research.db"):
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
+        self.db.execute("PRAGMA busy_timeout=10000")
+        if path != ":memory:":
+            self.db.execute("PRAGMA journal_mode=WAL")  # Web-Oberfläche liest, während der Runner schreibt
         self.db.executescript(SCHEMA)
         try:
             self.db.execute("CREATE VIRTUAL TABLE IF NOT EXISTS claims_fts USING fts5(text, content='claims', content_rowid='id')")

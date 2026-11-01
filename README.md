@@ -44,7 +44,25 @@ cp .env.example .env    # mindestens zwei der drei API-Schlüssel eintragen
 | ChatGPT | `OPENAI_API_KEY` | `OPENAI_MODEL` (Standard `gpt-5`, aktuelle Namen bitte prüfen) |
 | Grok | `XAI_API_KEY` | `XAI_MODEL` (Standard `grok-4`, aktuelle Namen bitte prüfen) |
 
-## Benutzung
+## Web-App
+
+```bash
+rc web                  # → http://127.0.0.1:8765
+```
+
+Was die Oberfläche bietet:
+
+- **Fragen auf die Agenda setzen** und dabei eine Priorität vergeben.
+- **Forschungsläufe starten und stoppen**, entweder mit fester Zyklenzahl oder im Dauerbetrieb mit Token-Budget. Der Demo-Modus läuft offline und ohne Kosten.
+- **Live-Kennzahlen:** Thesen nach Status, Zahl der Reviews, DOI-Fehler, Tokens pro Modell.
+- **Detailansicht je Frage:** kritische Synthese, offene Probleme, Thesen mit Status und Evidenzklasse, geprüfte (✓) und nicht auflösbare (✗) DOIs, alle Reviews und den Baum der Folgefragen.
+- **Volltextsuche**, Live-Protokoll, Download des Berichts als Markdown, Hell- und Dunkelmodus, Handy-tauglich.
+
+Sicherheit: Die API-Schlüssel bleiben auf dem Server. Er lauscht standardmäßig nur auf `127.0.0.1`, weil er
+keine Anmeldung hat und jeder Start echte API-Kosten verursacht. Dauerbetrieb mit echten Modellen
+nimmt der Server nur mit Token-Budget an. Antworten der Modelle werden im Browser grundsätzlich escaped.
+
+## Kommandozeile
 
 ```bash
 rc run --demo --cycles 3 --pause 0         # Offline-Demo ohne Schlüssel und ohne Kosten

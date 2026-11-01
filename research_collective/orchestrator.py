@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-import time
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from . import prompts
@@ -157,10 +157,12 @@ class Collective:
         self.kb.close_question(q.id)
         return True
 
-    def run(self, max_cycles: int | None = None, token_budget: int | None = None, pause: float = 0.0) -> int:
+    def run(self, max_cycles: int | None = None, token_budget: int | None = None, pause: float = 0.0,
+            stop: threading.Event | None = None) -> int:
+        stop = stop or threading.Event()
         done = 0
         try:
-            while max_cycles is None or done < max_cycles:
+            while (max_cycles is None or done < max_cycles) and not stop.is_set():
                 if token_budget is not None and self.kb.total_tokens() >= token_budget:
                     log.info("Token-Budget erreicht (%d) – Stopp.", token_budget)
                     break
@@ -169,7 +171,7 @@ class Collective:
                     break
                 done += 1
                 if pause:
-                    time.sleep(pause)
+                    stop.wait(pause)
         except KeyboardInterrupt:
             log.info("Abgebrochen nach %d Zyklen – Wissen ist gespeichert.", done)
         return done

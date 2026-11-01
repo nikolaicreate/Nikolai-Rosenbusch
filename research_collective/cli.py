@@ -68,6 +68,10 @@ def main(argv: list[str] | None = None) -> None:
     rep = sub.add_parser("report", help="Wissensbasis als Markdown exportieren")
     rep.add_argument("--out", default="knowledge/REPORT.md")
 
+    w = sub.add_parser("web", help="Web-App starten")
+    w.add_argument("--host", default="127.0.0.1", help="Standard nur lokal – jeder Start kostet API-Geld")
+    w.add_argument("--port", type=int, default=8765)
+
     sub.add_parser("stats", help="Kennzahlen anzeigen")
     s = sub.add_parser("search", help="Thesen durchsuchen")
     s.add_argument("term")
@@ -88,6 +92,17 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "report":
         write_report(kb, Path(args.out))
         print(f"Bericht geschrieben: {args.out}")
+    elif args.cmd == "web":
+        from .web import serve
+        if args.host not in ("127.0.0.1", "localhost", "::1"):
+            print("WARNUNG: Server ist im Netzwerk erreichbar und hat keine Anmeldung – "
+                  "jeder dort kann kostenpflichtige Läufe starten.")
+        httpd = serve(args.db, args.host, args.port)
+        print(f"Forschungskollektiv läuft auf http://{args.host}:{args.port}  (Strg+C beendet)")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            pass
     elif args.cmd == "stats":
         print(json.dumps(kb.stats(), indent=2, ensure_ascii=False))
     elif args.cmd == "search":
