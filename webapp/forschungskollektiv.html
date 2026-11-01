@@ -1,0 +1,737 @@
+<title>Forschungskollektiv</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+/* Layout: Laborbuch – oben die laufende Sitzung des Kollektivs, darunter das wachsende Archiv; links Agenda und Sitzordnung. */
+:root {
+  --paper: #f5f7f9; --sheet: #ffffff; --sheet-2: #eef1f5; --rule: #d9dee6;
+  --ink: #18202b; --ink-2: #5a6575; --accent: #1d4e89; --on-accent: #ffffff;
+  --claude: #b85a35; --gpt: #12806a; --grok: #6a55c8;
+  --konsens: #23794a; --plausibel: #2f68b0; --umstritten: #a76f0d; --widerlegt: #b23838; --proposed: #7b8492;
+  --f-display: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --f-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #12161c; --sheet: #1a2028; --sheet-2: #222a34; --rule: #313a46;
+    --ink: #e6eaf0; --ink-2: #9aa5b4; --accent: #8db4ec; --on-accent: #0e1520;
+    --claude: #e58d67; --gpt: #4cc4a6; --grok: #a796f2;
+    --konsens: #5fc78c; --plausibel: #7fafeb; --umstritten: #e3b24f; --widerlegt: #ee8080; --proposed: #9aa5b4;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #12161c; --sheet: #1a2028; --sheet-2: #222a34; --rule: #313a46;
+  --ink: #e6eaf0; --ink-2: #9aa5b4; --accent: #8db4ec; --on-accent: #0e1520;
+  --claude: #e58d67; --gpt: #4cc4a6; --grok: #a796f2;
+  --konsens: #5fc78c; --plausibel: #7fafeb; --umstritten: #e3b24f; --widerlegt: #ee8080; --proposed: #9aa5b4;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 15px/1.55 var(--f-ui); }
+button, input, textarea, select { font: inherit; color: inherit; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* Kopf */
+.top { border-bottom: 1px solid var(--rule); background: var(--sheet); }
+.top .wrap { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; padding-block: 14px; }
+.brand h1 { font: 600 1.35rem/1.15 var(--f-display); margin: 0; text-wrap: balance; }
+.brand p { margin: 2px 0 0; color: var(--ink-2); font-size: .82rem; }
+.spacer { flex: 1; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .82rem; color: var(--ink-2); }
+.stats b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+.icon-btn { background: none; border: 1px solid var(--rule); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+
+/* Frage stellen */
+.ask { padding-block: 20px 4px; }
+.ask form { display: flex; gap: 10px; flex-wrap: wrap; }
+.ask textarea { flex: 1 1 420px; min-width: 0; min-height: 52px; resize: vertical; padding: 12px 14px; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); font: 1.02rem/1.45 var(--f-display); }
+.ask .note { font-size: .8rem; color: var(--ink-2); margin: 6px 0 0; }
+.btn { border: 1px solid var(--rule); background: var(--sheet-2); border-radius: 7px; padding: 8px 14px; cursor: pointer; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.small { padding: 4px 10px; font-size: .82rem; }
+.btn.ghost { background: none; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; padding-block: 16px 40px; align-items: start; }
+.sec-h { font: 600 .72rem var(--f-ui); text-transform: uppercase; letter-spacing: .09em; color: var(--ink-2); margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+.box { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 14px; min-width: 0; }
+aside { display: grid; gap: 16px; }
+
+/* Sitzordnung */
+.seat { display: grid; gap: 6px; padding: 10px 0; border-top: 1px solid var(--rule); }
+.seat:first-of-type { border-top: none; padding-top: 0; }
+.seat-name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
+.seat-lens { font-size: .8rem; color: var(--ink-2); }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 7px; overflow: hidden; font-size: .78rem; }
+.seg button { border: none; background: none; padding: 4px 9px; cursor: pointer; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--sheet-2); color: var(--ink); font-weight: 600; }
+.tier { display: flex; align-items: center; gap: 8px; font-size: .82rem; margin-top: 10px; flex-wrap: wrap; }
+
+/* Agenda */
+.qlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 46vh; overflow-y: auto; }
+.qlist li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 7px 6px; border-radius: 6px; }
+.qlist li:hover { background: var(--sheet-2); }
+.qlist .d { font: 500 .7rem var(--f-mono); color: var(--ink-2); padding-top: 2px; }
+.qlist .t { font-size: .87rem; overflow-wrap: anywhere; }
+.qlist .go { font-size: .75rem; padding: 2px 8px; }
+.empty { color: var(--ink-2); font-size: .87rem; }
+
+/* Sitzung */
+.session { border-color: color-mix(in srgb, var(--accent) 35%, var(--rule)); }
+.session-q { font: 600 1.25rem/1.35 var(--f-display); margin: 4px 0 12px; text-wrap: balance; overflow-wrap: anywhere; }
+.steps { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.step { font-size: .78rem; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); color: var(--ink-2); }
+.step.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.step.ok { color: var(--konsens); border-color: color-mix(in srgb, var(--konsens) 40%, var(--rule)); }
+.seats-run { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.srun { border: 1px solid var(--rule); border-top: 3px solid var(--c); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; align-content: start; min-width: 0; background: var(--sheet); }
+.srun .h { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: .9rem; flex-wrap: wrap; }
+.state { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-left: auto; }
+.state.busy { color: var(--accent); } .state.done { color: var(--konsens); } .state.need { color: var(--umstritten); } .state.err { color: var(--widerlegt); } .state.idle { color: var(--ink-2); }
+.busy-bar { height: 3px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); background-size: 200% 100%; animation: slide 1.4s linear infinite; }
+@keyframes slide { from { background-position: 100% 0 } to { background-position: -100% 0 } }
+@media (prefers-reduced-motion: reduce) { .busy-bar { animation: none; background: var(--accent); opacity: .4; } }
+.srun textarea { width: 100%; min-height: 90px; resize: vertical; padding: 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--sheet-2); font: .78rem/1.4 var(--f-mono); }
+.srun .howto { font-size: .8rem; color: var(--ink-2); }
+.row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.err-msg { font-size: .8rem; color: var(--widerlegt); overflow-wrap: anywhere; }
+.auto { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--rule); font-size: .85rem; }
+.auto input[type=number] { width: 64px; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 6px; background: var(--sheet-2); }
+.idle-note { color: var(--ink-2); font-family: var(--f-display); font-size: 1.02rem; margin: 4px 0 0; }
+
+/* Archiv */
+.archive { display: grid; gap: 10px; margin-top: 20px; }
+details.q { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; min-width: 0; }
+details.q > summary { cursor: pointer; padding: 12px 14px; list-style: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+details.q > summary::-webkit-details-marker { display: none; }
+details.q > summary .qt { font: 600 1.05rem/1.4 var(--f-display); overflow-wrap: anywhere; }
+details.q > summary .meta { font-size: .75rem; color: var(--ink-2); grid-column: 1 / -1; }
+.mini { display: flex; height: 6px; width: 90px; border-radius: 3px; overflow: hidden; background: var(--sheet-2); align-self: center; }
+.mini span { display: block; height: 100%; }
+.qbody { padding: 0 14px 14px; display: grid; gap: 12px; }
+.synth { background: var(--sheet-2); border-radius: 8px; padding: 10px 14px; font: 1rem/1.6 var(--f-display); overflow-wrap: anywhere; max-width: 75ch; }
+.synth p { margin: 6px 0; } .synth ul { margin: 6px 0; padding-left: 20px; } .synth h4 { font: 600 .92rem var(--f-ui); margin: 10px 0 2px; }
+.problems { margin: 0; padding-left: 20px; font-size: .88rem; }
+.claim { border-left: 3px solid var(--sc); padding: 4px 0 4px 12px; display: grid; gap: 4px; }
+.claim .tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: .72rem; }
+.badge { font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--sc); background: color-mix(in srgb, var(--sc) 14%, transparent); border-radius: 4px; padding: 1px 6px; }
+.tag { color: var(--ink-2); border: 1px solid var(--rule); border-radius: 4px; padding: 0 6px; }
+.who { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-2); }
+.claim .tx { font: 1rem/1.5 var(--f-display); overflow-wrap: anywhere; max-width: 75ch; }
+.dois { display: flex; flex-direction: column; gap: 4px; font: .78rem var(--f-mono); }
+.doi { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.doi a { overflow-wrap: anywhere; }
+.doi .bad { text-decoration: line-through; color: var(--widerlegt); }
+.chk { font-family: var(--f-ui); font-size: .72rem; }
+.chk button { border: 1px solid var(--rule); background: none; border-radius: 4px; padding: 0 6px; cursor: pointer; color: var(--ink-2); }
+.chk button[aria-pressed="true"].ok { color: var(--konsens); border-color: var(--konsens); font-weight: 600; }
+.chk button[aria-pressed="true"].no { color: var(--widerlegt); border-color: var(--widerlegt); font-weight: 600; }
+details.rv summary { cursor: pointer; font-size: .78rem; color: var(--ink-2); }
+.rvs { display: grid; gap: 6px; margin-top: 6px; font-size: .86rem; }
+.rvs div { overflow-wrap: anywhere; }
+.rvs b { font-weight: 600; }
+.verd { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .75rem; color: var(--ink-2); }
+.legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+.banner { font-size: .82rem; padding: 8px 12px; border-radius: 8px; background: color-mix(in srgb, var(--umstritten) 12%, transparent); border: 1px solid color-mix(in srgb, var(--umstritten) 35%, transparent); }
+.banner[hidden] { display: none !important; }
+.report-out { width: 100%; min-height: 160px; margin-top: 8px; font: .78rem var(--f-mono); padding: 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--sheet-2); }
+
+@media (max-width: 880px) { .layout { grid-template-columns: minmax(0, 1fr); } .layout > aside { order: 2; } .qlist { max-height: 36vh; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>Forschungskollektiv</h1>
+      <p>Claude · ChatGPT · Grok – Thesen, Peer-Review über Kreuz, Synthese</p>
+    </div>
+    <div class="spacer"></div>
+    <div class="stats" id="stats" aria-live="polite"></div>
+    <button class="icon-btn" id="theme" type="button" aria-label="Hell oder dunkel umschalten">◐</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="ask">
+    <form id="ask-form">
+      <label for="ask-text" class="sec-h" style="flex-basis:100%;margin:0">Forschungsfrage auf den Prüfstand</label>
+      <textarea id="ask-text" maxlength="2000" placeholder="z. B. Lässt sich Kants Kategorienlehre mit der heutigen Kognitionswissenschaft vereinbaren?"></textarea>
+      <div class="row" style="align-items:stretch">
+        <button class="btn primary" type="submit" id="ask-run">Jetzt erforschen</button>
+        <button class="btn" type="button" id="ask-queue">Nur auf die Agenda</button>
+      </div>
+    </form>
+    <p class="note" id="ask-note">Ein Zyklus: Jeder Platz stellt Thesen auf → jeder begutachtet die Thesen der anderen → ein wechselnder Moderator schreibt die Synthese und leitet neue Fragen ab.</p>
+    <p class="banner" id="store-note" hidden></p>
+  </section>
+
+  <div class="layout">
+    <aside>
+      <section class="box">
+        <h2 class="sec-h">Sitzordnung</h2>
+        <div id="seats"></div>
+        <div class="tier">
+          <label for="tier">Denktiefe von Claude</label>
+          <select id="tier">
+            <option value="quick">schnell</option>
+            <option value="default" selected>standard</option>
+            <option value="complex">gründlich</option>
+          </select>
+        </div>
+      </section>
+      <section class="box">
+        <h2 class="sec-h">Agenda <span id="agenda-count" class="tag"></span></h2>
+        <ul class="qlist" id="agenda"></ul>
+      </section>
+      <section class="box">
+        <h2 class="sec-h">Bericht</h2>
+        <p class="empty" style="margin:0 0 8px">Das gesamte Archiv als Markdown, mit Status und DOIs.</p>
+        <button class="btn small" type="button" id="report-btn">Bericht kopieren</button>
+        <textarea class="report-out" id="report-out" readonly hidden aria-label="Bericht als Markdown"></textarea>
+      </section>
+    </aside>
+
+    <div style="min-width:0">
+      <section class="box session" id="session" aria-live="polite"></section>
+      <div class="archive">
+        <div class="row" style="justify-content:space-between">
+          <h2 class="sec-h" style="margin:0">Archiv des Kollektivs</h2>
+          <div class="legend">
+            <span><i style="background:var(--konsens)"></i>Konsens (gestützt + DOI geprüft)</span>
+            <span><i style="background:var(--plausibel)"></i>plausibel (gestützt, unbelegt)</span>
+            <span><i style="background:var(--umstritten)"></i>umstritten</span>
+            <span><i style="background:var(--widerlegt)"></i>widerlegt</span>
+          </div>
+        </div>
+        <div id="archive" class="archive" style="margin-top:0"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------- Grunddaten
+const SEATS = [
+  { id: "claude", name: "Claude", color: "var(--claude)", lens: "Begriffsklärung und Synthese: präzisiere Begriffe, prüfe die logische Struktur, verbinde Disziplinen.", manual: false },
+  { id: "chatgpt", name: "ChatGPT", color: "var(--gpt)", lens: "Empirie und Methodenkritik: Studienlage, Effektstärken, Replikation, Messprobleme.", manual: true, url: "https://chatgpt.com" },
+  { id: "grok", name: "Grok", color: "var(--grok)", lens: "Advocatus Diaboli: die stärkste Gegenposition, unbequeme Alternativen, blinde Flecken des Mainstreams.", manual: true, url: "https://grok.com" },
+];
+const STATUS = { konsens: "Konsens", plausibel: "plausibel", umstritten: "umstritten", widerlegt: "widerlegt", proposed: "ohne Review" };
+const EVID = { belegt: "belegt (DOI)", interpretiert: "interpretiert", spekuliert: "spekuliert" };
+const VERD = { support: ["stützt", "konsens"], challenge: ["hinterfragt", "umstritten"], refute: ["widerlegt", "widerlegt"] };
+const COLS = ["questions", "claims", "reviews", "syntheses"];
+const MAX_DEPTH = 4;
+
+const S = { questions: {}, claims: {}, reviews: {}, syntheses: {} };
+let db = null, sample = null, storeMode = "loading", canWrite = true;
+let run = null;            // laufende Sitzung
+let autoLeft = 0;          // verbleibende automatische Zyklen
+const cfg = loadCfg();
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const seat = (id) => SEATS.find((s) => s.id === id);
+const clamp01 = (x) => { const n = Number(x); return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : null; };
+const cleanDoi = (d) => String(d || "").trim().replace(/^https?:\/\/(dx\.)?doi\.org\//i, "").replace(/^doi:\s*/i, "").replace(/[.,;]+$/, "");
+const isDoi = (d) => /^10\.\d{4,9}\/\S+$/.test(d);
+
+function loadCfg() {
+  const base = { modes: { chatgpt: "proxy", grok: "proxy" }, tier: "default" };
+  try { return Object.assign(base, JSON.parse(localStorage.getItem("rc-cfg") || "{}")); } catch { return base; }
+}
+function saveCfg() { try { localStorage.setItem("rc-cfg", JSON.stringify(cfg)); } catch {} }
+const isManual = (s) => s.manual && cfg.modes[s.id] === "manual";
+const label = (s) => (s.id === "claude" || isManual(s)) ? s.name : `Claude für ${s.name}`;
+
+// ---------------------------------------------------------------- Speicher
+async function put(col, id, data) {
+  S[col][id] = data;
+  scheduleRender();
+  if (db) {
+    try { await db.collection(col).doc(id).set(data); }
+    catch (e) { canWrite = false; showStoreNote(e && e.code === "quota_exceeded" ? "Der Speicher dieses Artefakts ist voll. Neue Einträge werden nicht mehr gesichert." : "Du kannst hier nur lesen. Änderungen werden nicht gespeichert."); }
+  } else if (storeMode === "local") {
+    try { localStorage.setItem("rc-kb", JSON.stringify(S)); } catch {}
+  }
+}
+function showStoreNote(t) { const n = $("#store-note"); n.textContent = t; n.hidden = !t; }
+
+async function initStore() {
+  try { sample = await claude.use("sample"); } catch { sample = null; }
+  try { db = await claude.use("db"); } catch { db = null; }
+  if (!db) {
+    storeMode = "local";
+    try { const saved = JSON.parse(localStorage.getItem("rc-kb") || "null"); if (saved) for (const c of COLS) S[c] = saved[c] || {}; } catch {}
+    showStoreNote("Gespeichert wird nur in diesem Browser. Angemeldet auf claude.ai bleibt das Archiv dauerhaft erhalten.");
+  } else {
+    storeMode = "db";
+    let pending = COLS.length;
+    const timer = setTimeout(() => { if (pending) showStoreNote("Das Archiv ist noch nicht erreichbar. Neue Einträge erscheinen, sobald die Verbindung steht."); }, 10000);
+    for (const c of COLS) {
+      let first = true;
+      db.collection(c).onSnapshot((snap) => {
+        const m = {}; for (const d of snap.docs) m[d.id] = d.data();
+        S[c] = m;
+        if (first && !snap.metadata.fromCache) { first = false; if (--pending === 0) { clearTimeout(timer); if (canWrite) showStoreNote(""); } }
+        scheduleRender();
+      }, () => { clearTimeout(timer); showStoreNote("Die Verbindung zum Archiv wurde getrennt. Lade die Seite neu, um weiterzuarbeiten."); });
+    }
+  }
+  if (!sample) showStoreNote(($("#store-note").textContent ? $("#store-note").textContent + " " : "") + "Claude ist in dieser Ansicht nicht verfügbar. Stelle alle Plätze auf Kopieren und Einfügen oder öffne die Seite auf claude.ai.");
+  scheduleRender(); renderSession();
+}
+
+// ---------------------------------------------------------------- Abfragen
+const qs = () => Object.entries(S.questions).map(([id, q]) => ({ id, ...q }));
+const claimsOf = (qid) => Object.entries(S.claims).filter(([, c]) => c.qid === qid).map(([id, c]) => ({ id, ...c })).sort((a, b) => a.created - b.created);
+const reviewsOf = (cid) => Object.entries(S.reviews).filter(([, r]) => r.claimId === cid).map(([id, r]) => ({ id, ...r }));
+const synthOf = (qid) => Object.values(S.syntheses).filter((s) => s.qid === qid).sort((a, b) => b.created - a.created)[0];
+const verified = (c) => (c.dois || []).filter((d) => (c.doiChecks || {})[d] === "ok");
+
+function statusOf(c) {
+  const v = reviewsOf(c.id).map((r) => r.verdict), n = v.length;
+  if (!n) return "proposed";
+  const sup = v.filter((x) => x === "support").length, ref = v.filter((x) => x === "refute").length;
+  if (ref * 2 > n) return "widerlegt";
+  if (sup * 2 > n && ref === 0) return c.evidence === "belegt" && verified(c).length ? "konsens" : "plausibel";
+  return "umstritten";
+}
+
+function relatedClaims(text, limit = 12) {
+  const words = new Set(text.toLowerCase().split(/\W+/).filter((w) => w.length > 4));
+  return Object.entries(S.claims).map(([id, c]) => ({ id, ...c }))
+    .filter((c) => statusOf(c) !== "widerlegt")
+    .map((c) => ({ c, score: c.text.toLowerCase().split(/\W+/).filter((w) => words.has(w)).length }))
+    .filter((x) => x.score > 0).sort((a, b) => b.score - a.score).slice(0, limit).map((x) => x.c);
+}
+
+async function addQuestion(text, opts = {}) {
+  text = String(text || "").trim();
+  if (text.length < 5) return null;
+  const norm = (t) => t.toLowerCase().replace(/\W+/g, " ").trim();
+  const dup = qs().find((q) => norm(q.text) === norm(text));
+  if (dup) return dup.id;
+  const id = uid();
+  await put("questions", id, { text, status: "open", priority: opts.priority ?? 1, depth: opts.depth ?? 0, parent: opts.parent ?? null, source: opts.source ?? "Mensch", created: Date.now() });
+  return id;
+}
+const active = () => run && run.phase !== "done" ? run.qid : null;
+function nextQuestion() {
+  return qs().filter((q) => q.status === "open" && q.depth <= MAX_DEPTH && q.id !== active()).sort((a, b) => b.priority - a.priority || a.depth - b.depth || a.created - b.created)[0];
+}
+
+// ---------------------------------------------------------------- Prompts
+function charter(s) {
+  const others = SEATS.filter((x) => x !== s).map(label).join(" und ");
+  return `Du bist ${label(s)} im Forschungskollektiv mit ${others}. Deine Rolle: ${s.lens}
+Ziel: kumulativ belastbares Wissen aufbauen, nicht Textmenge.
+Regeln:
+1. evidence "belegt" NUR mit real existierender DOI (Format 10.xxxx/...). "interpretiert" = begründete Deutung ohne DOI. "spekuliert" = Hypothese. Erfinde niemals eine DOI: jede DOI wird nachgeprüft, eine erfundene wird dir öffentlich angelastet.
+2. Klassische Primärtexte (Kant, Hegel …) werkgenau im Text zitieren, nicht per DOI.
+3. Widersprich substanziell, Steelman statt Strohmann.
+4. Achte auf Fehler, die ihr alle teilen könntet (gemeinsame Trainingsdaten, Modetheorien).
+5. confidence zwischen 0 und 1. Schreibe auf Deutsch.
+Antworte ausschließlich mit einem JSON-Objekt, ohne Text davor oder danach.`;
+}
+const fmtClaim = (c, lab) => `[${lab}] (${c.authorLabel}, ${c.evidence}, Status: ${STATUS[statusOf(c)]}${(c.dois || []).length ? ", DOI: " + c.dois.join(", ") : ""})\n    ${c.text}`;
+
+function promptPropose(s, q) {
+  const ctx = relatedClaims(q.text);
+  return `${charter(s)}
+
+AUFGABE: Thesen aufstellen.
+Forschungsfrage: ${q.text}
+
+Bisheriges Wissen des Kollektivs:
+${ctx.length ? ctx.map((c, i) => fmtClaim(c, "W" + (i + 1))).join("\n") : "(noch nichts zu diesem Thema)"}
+
+Liefere 2 bis 5 präzise, prüfbare Thesen, die über dieses Wissen hinausgehen oder es korrigieren, und 1 bis 3 Folgefragen.
+JSON-Schema:
+{"claims": [{"text": "…", "evidence": "belegt|interpretiert|spekuliert", "dois": ["10.…"], "confidence": 0.0}], "follow_up_questions": ["…"]}`;
+}
+function promptReview(s, q, items) {
+  return `${charter(s)}
+
+AUFGABE: Peer-Review.
+Forschungsfrage: ${q.text}
+
+Thesen deiner Kolleg:innen:
+${items.map(({ c, lab }) => fmtClaim(c, lab)).join("\n")}
+
+Urteile über JEDE These: "support" (trägt), "challenge" (unklar, schwach belegt, zu pauschal) oder "refute" (falsch). Prüfe: Folgt die These aus den Belegen? Passt eine genannte DOI inhaltlich? Was ist die stärkste Gegenposition?
+JSON-Schema:
+{"reviews": [{"claim": "K1", "verdict": "support|challenge|refute", "critique": "…", "confidence": 0.0}]}`;
+}
+function promptSynth(s, q, items) {
+  const body = items.map(({ c, lab }) => fmtClaim(c, lab) + "\n" + reviewsOf(c.id).map((r) => `      ↳ ${r.reviewerLabel}: ${r.verdict} – ${r.critique}`).join("\n")).join("\n");
+  return `${charter(s)}
+
+AUFGABE: Kritische Synthese. Du moderierst diese Runde.
+Forschungsfrage: ${q.text}
+
+Thesen mit Reviews:
+${body}
+
+Schreibe eine kritische Synthese in Markdown: Was ist nach dem Review tragfähig? Wo bleibt Dissens unauflösbar? Welche unausgesprochenen Prämissen trennen die Positionen? Leite dann die Forschungsfragen mit dem größten Erkenntnisgewinn ab.
+JSON-Schema:
+{"synthesis": "…", "open_problems": ["…"], "next_questions": [{"text": "…", "priority": 0.0}]}`;
+}
+
+function parseJson(text) {
+  const t = String(text || "").trim();
+  try { return JSON.parse(t); } catch {}
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch {} }
+  throw new Error("Die Antwort enthält kein gültiges JSON. Kopiere die vollständige Antwort des Modells.");
+}
+
+// ---------------------------------------------------------------- Ablauf einer Sitzung
+const PHASES = [["propose", "1 Thesen"], ["review", "2 Peer-Review"], ["synth", "3 Synthese"]];
+
+function startSession(qid) {
+  if (run && run.phase !== "done") return;
+  const q = S.questions[qid];
+  if (!q) return;
+  const cycle = Object.keys(S.syntheses).length;
+  run = { qid, phase: "propose", seats: {}, claimIds: [], labels: {}, moderator: SEATS[cycle % SEATS.length].id };
+  renderAgenda();
+  beginPhase();
+}
+
+function beginPhase() {
+  const q = { id: run.qid, ...S.questions[run.qid] };
+  run.seats = {};
+  let participants = SEATS;
+  if (run.phase === "synth") participants = [seat(run.moderator)];
+  for (const s of participants) {
+    let prompt;
+    if (run.phase === "propose") prompt = promptPropose(s, q);
+    else if (run.phase === "review") {
+      const items = run.claimIds.map((id) => ({ c: { id, ...S.claims[id] }, lab: run.labels[id] })).filter(({ c }) => c.author !== s.id);
+      if (!items.length) continue;
+      prompt = promptReview(s, q, items);
+    } else {
+      prompt = promptSynth(s, q, run.claimIds.map((id) => ({ c: { id, ...S.claims[id] }, lab: run.labels[id] })));
+    }
+    run.seats[s.id] = { status: isManual(s) ? "need" : "busy", prompt, error: "" };
+  }
+  renderSession();
+  for (const [sid, st] of Object.entries(run.seats)) if (st.status === "busy") askClaude(seat(sid), st);
+  maybeAdvance();
+}
+
+async function askClaude(s, st) {
+  if (!sample) { st.status = "err"; st.error = "Claude ist hier nicht verfügbar."; renderSession(); return; }
+  const ctl = new AbortController(); st.ctl = ctl;
+  const mine = run;
+  try {
+    const out = await sample.json(st.prompt, { modelTier: cfg.tier, cache: false, signal: ctl.signal });
+    if (run !== mine || run.seats[s.id] !== st) return;  // Sitzung inzwischen abgebrochen
+    await accept(s, out);
+  } catch (e) {
+    if ((e && e.code === "cancelled") || run !== mine) return;
+    st.status = "err";
+    st.error = { not_granted: "Claude wurde für diese Seite nicht freigegeben.", rate_limited: "Zu viele Anfragen. Warte einen Moment und versuche es dann erneut." }[e && e.code] || (e && e.message) || "Unbekannter Fehler.";
+    autoLeft = 0;
+    renderSession();
+  }
+}
+
+async function accept(s, out) {
+  const st = run.seats[s.id];
+  if (!out || typeof out !== "object") throw new Error("Leere Antwort.");
+  const q = S.questions[run.qid];
+  if (run.phase === "propose") {
+    for (const c of (out.claims || []).slice(0, 5)) {
+      const text = String(c.text || "").trim(); if (!text) continue;
+      const dois = [...new Set((c.dois || []).map(cleanDoi).filter(isDoi))].slice(0, 5);
+      let evidence = EVID[c.evidence] ? c.evidence : "spekuliert";
+      if (evidence === "belegt" && !dois.length) evidence = "interpretiert";
+      const id = uid();
+      await put("claims", id, { qid: run.qid, text, evidence, dois, doiChecks: {}, confidence: clamp01(c.confidence), author: s.id, authorLabel: label(s), created: Date.now() });
+      run.claimIds.push(id);
+    }
+    for (const f of (out.follow_up_questions || []).slice(0, 3)) {
+      if (q.depth + 1 <= MAX_DEPTH) await addQuestion(f, { priority: 0.3 * 0.9 ** (q.depth + 1), depth: q.depth + 1, parent: run.qid, source: label(s) });
+    }
+  } else if (run.phase === "review") {
+    const byLab = Object.fromEntries(Object.entries(run.labels).map(([id, lab]) => [lab, id]));
+    for (const r of out.reviews || []) {
+      const cid = byLab[String(r.claim || "").trim().toUpperCase()];
+      if (!cid || S.claims[cid].author === s.id || !VERD[r.verdict]) continue;
+      await put("reviews", uid(), { claimId: cid, reviewer: s.id, reviewerLabel: label(s), verdict: r.verdict, critique: String(r.critique || ""), confidence: clamp01(r.confidence), created: Date.now() });
+    }
+  } else {
+    await put("syntheses", uid(), { qid: run.qid, moderator: s.id, moderatorLabel: label(s), text: String(out.synthesis || ""), problems: (out.open_problems || []).map(String).slice(0, 8), created: Date.now() });
+    for (const n of (out.next_questions || []).slice(0, 4)) {
+      const t = typeof n === "string" ? n : n && n.text;
+      if (t && q.depth + 1 <= MAX_DEPTH) await addQuestion(t, { priority: (clamp01(n.priority) ?? 0.5) * 0.9 ** (q.depth + 1), depth: q.depth + 1, parent: run.qid, source: label(s) });
+    }
+  }
+  st.status = "done"; st.error = "";
+  renderSession();
+  maybeAdvance();
+}
+
+async function maybeAdvance() {
+  if (!run || run.phase === "done") return;
+  const sts = Object.values(run.seats);
+  if (sts.some((x) => x.status !== "done" && x.status !== "skipped")) return;
+  if (run.phase === "propose") {
+    if (!run.claimIds.length) { await finish("skipped"); return; }
+    run.claimIds.forEach((id, i) => (run.labels[id] = "K" + (i + 1)));
+    run.phase = "review";
+  } else if (run.phase === "review") run.phase = "synth";
+  else { await finish("done"); return; }
+  beginPhase();
+}
+
+async function finish(status) {
+  const q = S.questions[run.qid];
+  await put("questions", run.qid, { ...q, status: status === "done" ? "done" : "skipped" });
+  run.phase = "done"; run.doneQid = run.qid;
+  renderSession(); renderAgenda();
+  if (autoLeft > 0) {
+    autoLeft--;
+    const nq = nextQuestion();
+    if (nq) setTimeout(() => startSession(nq.id), 600);
+    else autoLeft = 0;
+  }
+}
+
+function cancelSession() {
+  if (!run) return;
+  for (const st of Object.values(run.seats)) st.ctl?.abort();
+  run = null; autoLeft = 0; renderSession(); renderAgenda();
+}
+
+// ---------------------------------------------------------------- Darstellung: Sitzung
+function renderSession() {
+  const el = $("#session");
+  const drafts = {}; el.querySelectorAll("textarea[data-paste]").forEach((t) => (drafts[t.dataset.paste] = t.value));
+  const allAuto = SEATS.every((s) => !isManual(s));
+  if (!run || run.phase === "done") {
+    const nq = nextQuestion();
+    const last = run && run.doneQid ? S.questions[run.doneQid] : null;
+    el.innerHTML = `
+      <h2 class="sec-h">Sitzung</h2>
+      ${last ? `<p class="idle-note">Fertig: „${esc(last.text)}“. Ergebnis unten im Archiv.</p>` : `<p class="idle-note">${storeMode === "loading" ? "Archiv wird geladen …" : nq ? "Bereit. Die nächste Frage auf der Agenda:" : "Stelle oben eine Frage, um die erste Sitzung zu eröffnen."}</p>`}
+      ${nq ? `<p class="session-q">${esc(nq.text)}</p>
+        <div class="row"><button class="btn primary" type="button" data-start="${nq.id}" ${storeMode === "loading" ? "disabled" : ""}>Sitzung eröffnen</button></div>` : ""}
+      <div class="auto">
+        <label for="auto-n">Automatisch</label><input type="number" id="auto-n" min="1" max="10" value="3">
+        <span>Zyklen nacheinander</span>
+        <button class="btn" type="button" id="auto-go" ${allAuto && nq && sample ? "" : "disabled"}>Starten</button>
+        <span class="empty" style="font-size:.78rem">${allAuto ? "Höchstens 10 pro Start. Jeder Zyklus braucht 7 Claude-Antworten aus deinem Kontingent." : "Nur möglich, wenn kein Platz auf Kopieren und Einfügen steht."}</span>
+      </div>`;
+    return;
+  }
+  const q = S.questions[run.qid];
+  const idx = PHASES.findIndex(([p]) => p === run.phase);
+  el.innerHTML = `
+    <h2 class="sec-h">Sitzung läuft ${autoLeft > 0 ? `<span class="tag">noch ${autoLeft} automatische Zyklen</span>` : ""}</h2>
+    <p class="session-q">${esc(q.text)}</p>
+    <div class="steps">${PHASES.map(([p, n], i) => `<span class="step ${i < idx ? "ok" : i === idx ? "on" : ""}">${i < idx ? "✓ " : ""}${n}</span>`).join("")}</div>
+    <div class="seats-run">${Object.entries(run.seats).map(([sid, st]) => seatCard(seat(sid), st, drafts[sid])).join("")}</div>
+    <div class="row" style="margin-top:12px"><button class="btn ghost small" type="button" id="cancel">Sitzung abbrechen</button>
+    <span class="empty" style="font-size:.78rem">${run.phase === "synth" ? "Moderation diese Runde: " + esc(label(seat(run.moderator))) : ""}</span></div>`;
+}
+function seatCard(s, st, draft) {
+  const stateTxt = { busy: ["denkt nach", "busy"], done: ["fertig", "done"], need: ["deine Eingabe", "need"], err: ["Fehler", "err"], skipped: ["ausgesetzt", "idle"] }[st.status];
+  let body = "";
+  if (st.status === "busy") body = `<div class="busy-bar" aria-hidden="true"></div>`;
+  if (st.status === "need") body = `
+    <div class="howto">1. Prompt kopieren · 2. in <a href="${s.url}" target="_blank" rel="noopener noreferrer">${s.name}</a> einfügen · 3. die Antwort hier einfügen</div>
+    <div class="row"><button class="btn small" type="button" data-copy="${s.id}">Prompt kopieren</button><button class="btn small ghost" type="button" data-skip="${s.id}">Aussetzen</button></div>
+    <textarea class="prompt-fallback" data-prompt="${s.id}" readonly hidden aria-label="Prompt für ${s.name}">${esc(st.prompt)}</textarea>
+    <textarea data-paste="${s.id}" id="paste-${s.id}" placeholder="Antwort von ${s.name} hier einfügen (JSON)">${esc(draft || "")}</textarea>
+    <div class="row"><button class="btn small primary" type="button" data-accept="${s.id}">Antwort übernehmen</button></div>`;
+  if (st.status === "err") body = `<div class="row"><button class="btn small" type="button" data-retry="${s.id}">Erneut versuchen</button><button class="btn small ghost" type="button" data-skip="${s.id}">Aussetzen</button></div>`;
+  return `<div class="srun" style="--c:${s.color}">
+    <div class="h"><span class="dot"></span>${esc(label(s))}<span class="state ${stateTxt[1]}">${stateTxt[0]}</span></div>
+    ${body}${st.error ? `<div class="err-msg">${esc(st.error)}</div>` : ""}</div>`;
+}
+
+$("#session").addEventListener("click", async (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.start) startSession(b.dataset.start);
+  else if (b.id === "auto-go") {
+    const n = Math.max(1, Math.min(10, parseInt($("#auto-n").value, 10) || 1));
+    const nq = nextQuestion(); if (!nq) return;
+    autoLeft = n - 1; startSession(nq.id);
+  } else if (b.id === "cancel") cancelSession();
+  else if (b.dataset.copy) {
+    const st = run.seats[b.dataset.copy];
+    try { await navigator.clipboard.writeText(st.prompt); b.textContent = "Kopiert ✓"; }
+    catch { const t = $(`textarea[data-prompt="${b.dataset.copy}"]`); t.hidden = false; t.focus(); t.select(); b.textContent = "Text markiert – mit Strg+C kopieren"; }
+  } else if (b.dataset.accept) {
+    const s = seat(b.dataset.accept), st = run.seats[s.id];
+    try { await accept(s, parseJson($(`#paste-${s.id}`).value)); }
+    catch (err) { st.error = err.message; renderSession(); }
+  } else if (b.dataset.skip) { run.seats[b.dataset.skip].status = "skipped"; run.seats[b.dataset.skip].error = ""; renderSession(); maybeAdvance(); }
+  else if (b.dataset.retry) { const st = run.seats[b.dataset.retry]; st.status = "busy"; st.error = ""; renderSession(); askClaude(seat(b.dataset.retry), st); }
+});
+
+// ---------------------------------------------------------------- Darstellung: Rest
+let renderQueued = false;
+function scheduleRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(() => { renderQueued = false; renderStats(); renderAgenda(); renderArchive(); if (!run || run.phase === "done") renderSession(); }); } }
+
+function renderStats() {
+  const cl = Object.entries(S.claims).map(([id, c]) => ({ id, ...c }));
+  const by = {}; cl.forEach((c) => { const s = statusOf(c); by[s] = (by[s] || 0) + 1; });
+  const done = qs().filter((q) => q.status === "done").length;
+  $("#stats").innerHTML = `<span><b>${done}</b> erforscht</span><span><b>${cl.length}</b> Thesen</span><span><b>${by.konsens || 0}</b> Konsens</span><span><b>${by.widerlegt || 0}</b> widerlegt</span><span><b>${Object.keys(S.reviews).length}</b> Reviews</span>`;
+}
+
+function renderSeats() {
+  $("#seats").innerHTML = SEATS.map((s) => `
+    <div class="seat" style="--c:${s.color}">
+      <div class="seat-name"><span class="dot"></span>${s.name}</div>
+      <div class="seat-lens">${esc(s.lens)}</div>
+      ${s.manual ? `<div class="seg" role="group" aria-label="Wie ${s.name} teilnimmt">
+          <button type="button" data-mode="${s.id}:manual" aria-pressed="${cfg.modes[s.id] === "manual"}">echt, per Kopieren</button>
+          <button type="button" data-mode="${s.id}:proxy" aria-pressed="${cfg.modes[s.id] !== "manual"}">Claude vertritt</button></div>`
+        : `<div class="seat-lens">antwortet automatisch über dein Claude-Konto</div>`}
+    </div>`).join("");
+}
+$("#seats").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-mode]"); if (!b) return;
+  const [id, mode] = b.dataset.mode.split(":");
+  cfg.modes[id] = mode; saveCfg(); renderSeats();
+  if (!run || run.phase === "done") renderSession();
+});
+$("#tier").value = cfg.tier;
+$("#tier").addEventListener("change", (e) => { cfg.tier = e.target.value; saveCfg(); });
+
+function renderAgenda() {
+  const open = qs().filter((q) => q.status === "open" && q.id !== active()).sort((a, b) => b.priority - a.priority || a.depth - b.depth || a.created - b.created);
+  $("#agenda-count").textContent = open.length;
+  const busy = run && run.phase !== "done";
+  $("#agenda").innerHTML = open.length ? open.map((q) => `<li><span class="d">T${q.depth}</span><span class="t">${esc(q.text)}</span><button class="btn small go" type="button" data-start="${q.id}" ${busy || storeMode === "loading" ? "disabled" : ""} aria-label="Diese Frage erforschen">▶</button></li>`).join("")
+    : `<li class="empty">Leer. Jede Synthese setzt neue Fragen auf die Agenda.</li>`;
+}
+$("#agenda").addEventListener("click", (e) => { const b = e.target.closest("button[data-start]"); if (b) startSession(b.dataset.start); });
+
+function md(src) {
+  const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+  let h = "", list = false;
+  for (const raw of String(src || "").split("\n")) {
+    const li = raw.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)/);
+    if (li) { if (!list) { h += "<ul>"; list = true; } h += `<li>${inline(li[1])}</li>`; continue; }
+    if (list) { h += "</ul>"; list = false; }
+    const hd = raw.match(/^#{1,4}\s+(.*)/);
+    if (hd) h += `<h4>${inline(hd[1])}</h4>`; else if (raw.trim()) h += `<p>${inline(raw)}</p>`;
+  }
+  return h + (list ? "</ul>" : "");
+}
+
+function renderArchive() {
+  const el = $("#archive");
+  const openIds = new Set([...el.querySelectorAll("details[open]")].map((d) => d.dataset.k));
+  const done = qs().filter((q) => q.status === "done").sort((a, b) => b.created - a.created);
+  if (!done.length) {
+    el.innerHTML = `<div class="box empty">Noch leer. Nach der ersten Sitzung steht hier, was das Kollektiv erarbeitet hat: Synthese, Thesen mit Status, Reviews und DOIs zum Prüfen.</div>`;
+    return;
+  }
+  el.innerHTML = done.map((q, i) => {
+    const cl = claimsOf(q.id), syn = synthOf(q.id), by = {};
+    cl.forEach((c) => { const s = statusOf(c); by[s] = (by[s] || 0) + 1; });
+    const order = ["konsens", "plausibel", "umstritten", "widerlegt", "proposed"];
+    const parent = q.parent && S.questions[q.parent];
+    const k = "q-" + q.id;
+    return `<details class="q" data-k="${k}" ${openIds.has(k) || (!openIds.size && i === 0) ? "open" : ""}>
+      <summary><span class="qt">${esc(q.text)}</span>
+        <span class="mini" aria-hidden="true">${cl.length ? order.filter((s) => by[s]).map((s) => `<span style="width:${by[s] / cl.length * 100}%;background:var(--${s})"></span>`).join("") : ""}</span>
+        <span class="meta">${cl.length} Thesen · ${order.filter((s) => by[s]).map((s) => `${by[s]} ${STATUS[s]}`).join(" · ")}${parent ? ` · abgeleitet aus „${esc(parent.text.slice(0, 80))}${parent.text.length > 80 ? "…" : ""}“` : ""}</span></summary>
+      <div class="qbody">
+        ${syn ? `<div><h3 class="sec-h">Synthese · ${esc(syn.moderatorLabel)}</h3><div class="synth">${md(syn.text)}</div></div>
+          ${syn.problems && syn.problems.length ? `<div><h3 class="sec-h">Offene Probleme</h3><ul class="problems">${syn.problems.map((p) => `<li>${esc(p)}</li>`).join("")}</ul></div>` : ""}` : ""}
+        <div><h3 class="sec-h">Thesen</h3><div style="display:grid;gap:12px">${cl.map(claimHtml).join("")}</div></div>
+      </div></details>`;
+  }).join("");
+}
+function claimHtml(c) {
+  const st = statusOf(c), rv = reviewsOf(c.id), sc = seat(c.author);
+  const checks = c.doiChecks || {};
+  const dois = (c.dois || []).map((d) => `<div class="doi">
+      <a href="https://doi.org/${encodeURI(d)}" target="_blank" rel="noopener noreferrer" class="${checks[d] === "bad" ? "bad" : ""}">${esc(d)}</a>
+      <span class="chk" role="group" aria-label="DOI geprüft?">
+        <button type="button" class="ok" data-doi="${c.id}|${esc(d)}|ok" aria-pressed="${checks[d] === "ok"}">passt</button>
+        <button type="button" class="no" data-doi="${c.id}|${esc(d)}|bad" aria-pressed="${checks[d] === "bad"}">existiert nicht</button>
+      </span></div>`).join("");
+  return `<article class="claim" style="--sc:var(--${st})">
+    <div class="tags"><span class="badge">${STATUS[st]}</span><span class="tag">${EVID[c.evidence] || esc(c.evidence)}</span>
+      <span class="who"><span class="dot" style="--c:${sc ? sc.color : "var(--ink-2)"}"></span>${esc(c.authorLabel)}</span>
+      ${c.confidence != null ? `<span class="tag">Konfidenz ${Math.round(c.confidence * 100)} %</span>` : ""}</div>
+    <div class="tx">${esc(c.text)}</div>
+    ${dois ? `<div class="dois">${dois}</div>` : ""}
+    ${rv.length ? `<details class="rv" data-k="r-${c.id}"><summary>${rv.length} Review${rv.length > 1 ? "s" : ""}: ${rv.map((r) => VERD[r.verdict][0]).join(", ")}</summary>
+      <div class="rvs">${rv.map((r) => `<div><b>${esc(r.reviewerLabel)}</b> <span class="verd" style="color:var(--${VERD[r.verdict][1]})">${VERD[r.verdict][0]}</span> – ${esc(r.critique)}</div>`).join("")}</div></details>` : ""}
+  </article>`;
+}
+$("#archive").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-doi]"); if (!b) return;
+  const [cid, ...rest] = b.dataset.doi.split("|"); const val = rest.pop(); const doi = rest.join("|");
+  const c = S.claims[cid]; if (!c) return;
+  const checks = { ...(c.doiChecks || {}) };
+  checks[doi] = checks[doi] === val ? undefined : val;
+  if (!checks[doi]) delete checks[doi];
+  put("claims", cid, { ...c, doiChecks: checks });
+});
+
+// ---------------------------------------------------------------- Bericht
+function reportMd() {
+  const lines = ["# Archiv des Forschungskollektivs", "", "Status: Konsens = mehrheitlich gestützt und DOI geprüft · plausibel = gestützt, aber unbelegt · umstritten · widerlegt", ""];
+  for (const q of qs().filter((q) => q.status === "done").sort((a, b) => a.created - b.created)) {
+    lines.push(`## ${q.text}`, "");
+    const syn = synthOf(q.id);
+    if (syn) { lines.push(`**Synthese (${syn.moderatorLabel}):**`, "", syn.text, ""); if (syn.problems?.length) lines.push("**Offene Probleme:**", ...syn.problems.map((p) => `- ${p}`), ""); }
+    for (const c of claimsOf(q.id)) {
+      lines.push(`- **${STATUS[statusOf(c)]}** · ${EVID[c.evidence]} · ${c.authorLabel}: ${c.text}`);
+      for (const d of c.dois || []) lines.push(`  - DOI ${d} (${{ ok: "geprüft", bad: "existiert nicht" }[(c.doiChecks || {})[d]] || "ungeprüft"})`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+$("#report-btn").addEventListener("click", async (e) => {
+  const text = reportMd(), out = $("#report-out");
+  try { await navigator.clipboard.writeText(text); e.target.textContent = "Kopiert ✓"; out.hidden = true; }
+  catch { out.value = text; out.hidden = false; out.focus(); out.select(); e.target.textContent = "Text markiert – mit Strg+C kopieren"; }
+});
+
+// ---------------------------------------------------------------- Frage stellen
+async function submitAsk(runNow) {
+  const t = $("#ask-text"), note = $("#ask-note");
+  if (t.value.trim().length < 5) { note.textContent = "Bitte formuliere eine Frage mit mindestens fünf Zeichen."; t.focus(); return; }
+  if (storeMode === "loading") return;
+  const id = await addQuestion(t.value, { priority: 1 });
+  t.value = "";
+  if (runNow && !(run && run.phase !== "done")) { startSession(id); note.textContent = "Sitzung eröffnet."; }
+  else note.textContent = runNow ? "Auf die Agenda gesetzt. Gerade läuft noch eine Sitzung." : "Auf die Agenda gesetzt.";
+}
+$("#ask-form").addEventListener("submit", (e) => { e.preventDefault(); submitAsk(true); });
+$("#ask-queue").addEventListener("click", () => submitAsk(false));
+
+// ---------------------------------------------------------------- Theme
+try { const t = localStorage.getItem("rc-theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+$("#theme").addEventListener("click", () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.dataset.theme = cur === "dark" ? "light" : "dark";
+  try { localStorage.setItem("rc-theme", document.documentElement.dataset.theme); } catch {}
+});
+
+renderSeats(); renderStats(); renderAgenda(); renderArchive(); renderSession();
+if (window.claude && typeof claude.use === "function") initStore();
+else { storeMode = "local"; try { const saved = JSON.parse(localStorage.getItem("rc-kb") || "null"); if (saved) for (const c of COLS) S[c] = saved[c] || {}; } catch {} showStoreNote("Diese Kopie läuft außerhalb von claude.ai: Claude ist nicht verfügbar, gespeichert wird nur im Browser. Stelle die Plätze auf Kopieren und Einfügen."); scheduleRender(); }
+</script>

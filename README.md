@@ -31,6 +31,16 @@ Die Kernregel lautet: **Zustimmung allein erzeugt kein Wissen.** Den Status `kon
 nur, wenn eine echte, auflösbare DOI sie stützt. Das soll verhindern, dass sich drei Modelle mit ähnlichen
 Trainingsdaten gegenseitig ihre gemeinsamen Irrtümer bestätigen.
 
+## Sofort loslegen
+
+**Ohne Installation (im Browser):** [Forschungskollektiv auf claude.ai](https://claude.ai/artifact/4GgzfuubKJASACR3nUir6r). Den Quelltext findest du in `webapp/forschungskollektiv.html`.
+Claude antwortet automatisch über dein Claude-Konto. ChatGPT und Grok nehmen über Kopieren und Einfügen
+aus ihren eigenen Web-Apps teil, oder Claude vertritt ihren Platz mit eigener Perspektive (deutlich gekennzeichnet).
+Die Browser-Version kann DOIs nicht selbst nachschlagen: Du klickst sie an und bestätigst sie per Klick.
+
+**Vollversion lokal mit echter API-Anbindung:** Doppelklick auf `start.command` (macOS) oder `start.bat` (Windows),
+oder `./start.sh` unter Linux. Das Skript richtet alles ein und öffnet die Web-App im Browser.
+
 ## Installation
 
 ```bash
