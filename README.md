@@ -10,7 +10,20 @@ Ein Open-World-Fahrspiel im Browser. Man fährt durch ein 3D-Berlin-Mitte, das a
 
 > Das Spiel ist ein eigenständiges Projekt. Es lehnt sich nur an den Look moderner Open-World-Spiele an und enthält keine Inhalte, Marken oder Assets anderer Spiele.
 
-## Starten
+## Online spielen
+
+**Sofort spielbar:** https://nikolaicreate.github.io/Nikolai-Rosenbusch/
+(funktioniert, sobald GitHub Pages einmalig eingeschaltet ist, siehe unten)
+
+### GitHub Pages einschalten (einmalig, ca. 2 Minuten)
+
+1. https://github.com/nikolaicreate/Nikolai-Rosenbusch/settings/pages öffnen (als Repo-Besitzer angemeldet).
+2. Unter **Build and deployment → Source** „**Deploy from a branch**“ wählen.
+3. Unter **Branch** den Branch `claude/3d-berlin-traffic-game-3z6y5l` wählen, daneben den Ordner **`/ (root)`**, dann **Save**.
+4. 1–3 Minuten warten, Seite neu laden. Oben erscheint „Your site is live at …“.
+5. Den Link öffnen und **Losfahren** klicken.
+
+## Lokal starten
 
 Es gibt keinen Build-Schritt. Weil ES-Module und `fetch` einen Webserver brauchen, den Ordner einfach statisch ausliefern:
 
