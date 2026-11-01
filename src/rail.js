@@ -89,11 +89,11 @@ function tramSegment(len, front, rear, panto) {
   const parts = [];
   parts.push(prep(new RoundedBoxGeometry(2.4, 2.75, len, 3, 0.22).translate(0, 0.4 + 1.375, 0), Y));
   parts.push(prep(box(2.42, 0.32, len - 0.4, 0, 0.5, 0), D));
-  parts.push(prep(box(2.44, 1.15, len - 1.0, 0, 2.05, 0), G));
+  parts.push(prep(box(2.44, 1.0, len - 1.0, 0, 2.15, 0), 0x22303c));
   parts.push(prep(box(2.43, 0.12, len - 0.6, 0, 1.4, 0), W));
   parts.push(prep(box(1.9, 0.32, len - 1.6, 0, 3.25, 0), 0xb9bcc0));
   // Türen
-  for (const z of [-len * 0.25, len * 0.25]) for (const sx of [-1, 1]) parts.push(prep(box(0.03, 2.1, 1.3, sx * 1.215, 1.55, z), 0x23282e));
+  for (const z of [-len * 0.25, len * 0.25]) for (const sx of [-1, 1]) parts.push(prep(box(0.03, 2.1, 1.3, sx * 1.215, 1.55, z), 0x2d3640));
   if (front) parts.push(prep(new RoundedBoxGeometry(2.3, 1.5, 0.5, 2, 0.2).translate(0, 2.15, len / 2 - 0.05), G));
   if (rear) parts.push(prep(new RoundedBoxGeometry(2.3, 1.5, 0.5, 2, 0.2).translate(0, 2.15, -len / 2 + 0.05), G));
   if (panto) {
