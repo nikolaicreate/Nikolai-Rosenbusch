@@ -646,9 +646,9 @@ export function createWorld(scene, renderer) {
   const snowWhite = new THREE.Color(0xf4f6f8);
   function applyEnvironment({ night, wet, snow, t, x, z, envI = 1 }) {
     if (x !== undefined) { ground.position.x = Math.round(x / 64) * 64; ground.position.z = Math.round(z / 64) * 64; }
-    mats.wall.emissiveIntensity = night * 1.6;
+    mats.wall.emissiveIntensity = night * 1.05;
     mats.lampHead.color.setRGB(0.25 + night * 5, 0.25 + night * 4.2, 0.25 + night * 2.6);
-    mats.pool.opacity = night * (0.55 + wet * 0.5); // auf nasser Straße stärkerer Lichtschein
+    mats.pool.opacity = night * (0.42 + wet * 0.2); // auf nasser Straße etwas stärkerer Lichtschein
     for (const m of [mats.roadMajor, mats.roadMinor]) {
       // Pfützenkarte erst bei Nässe aktivieren (einmaliges Neukompilieren)
       const wantPuddles = wet > 0.2;
