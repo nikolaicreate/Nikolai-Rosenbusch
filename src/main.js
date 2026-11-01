@@ -366,9 +366,10 @@ function updateCamera(dt) {
 // ---------------------------------------------------------------- Schleife
 const clock = new THREE.Clock();
 let hudTimer = 0, mapTimer = 0, lastImpact = 0;
+let paused = false;
 function loop() {
   requestAnimationFrame(loop);
-  if (!world) return;
+  if (!world || paused) return;
   const dt = Math.min(0.05, clock.getDelta());
   const input = readInput();
   if (!menuOpen) {
@@ -398,4 +399,9 @@ init().then(() => { env.onThunder = () => audio.thunder(); loop(); }).catch((e) 
 });
 
 // Debug-/Testzugriff
-window.__bd = { get player() { return player; }, get traffic() { return traffic; }, get world() { return world; }, get data() { return data; }, settings, weather, camera, setCam: (m) => (camMode = m), start };
+window.__bd = { get player() { return player; }, get traffic() { return traffic; }, get world() { return world; }, get data() { return data; }, settings, weather, camera, setCam: (m) => (camMode = m), start,
+  // Test-Hilfe: Simulation anhalten und gezielt Einzelbilder rendern
+  pause: (v) => { paused = v; },
+  step: (n = 1, dt = 1 / 30) => { for (let i = 0; i < n; i++) { const inp = readInput(); player.update(dt, inp, world, traffic, rail); traffic.update(dt, player); rail.update(dt, player); people.update(dt, player, ['rain', 'drizzle', 'storm'].includes(weather.state.kind), people.count); updateEnvironment(dt); updateCamera(dt); } updateHUD(0.1); map.drawRadar($('minimap'), player); composer.render(); },
+  teleport: (x, z, h) => { player.place(x, z, h); camState.init = false; },
+  get rail() { return rail; }, get people() { return people; } };
