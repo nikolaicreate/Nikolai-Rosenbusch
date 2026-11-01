@@ -1,7 +1,7 @@
 // KI-Verkehr auf dem echten Straßengraphen + Live-Verkehrslage (TomTom) bzw. Tageszeit-Modell.
 import * as THREE from 'three';
 import { ROAD_TYPES, mulberry32, hashStr, project } from './geo.js';
-import { buildCarGeometry, makeCarMaterials, PAINTS, TAXI_COLOR, BVG_YELLOW } from './cars.js';
+import { buildCarGeometry, makeCarMaterials, PAINTS, TAXI_COLOR, BVG_YELLOW, CITY_PAINTS, VISION_PAINTS } from './cars.js';
 
 // ---------------------------------------------------------------- Graph
 function buildGraph(roads) {
@@ -132,7 +132,7 @@ export class LiveTraffic {
 }
 
 // ---------------------------------------------------------------- Fahrzeuge
-const TYPE_MIX = [['sedan', 0.34], ['hatch', 0.24], ['suv', 0.18], ['van', 0.09], ['taxi', 0.1], ['bus', 0.05]];
+const TYPE_MIX = [['city', 0.24], ['vision', 0.14], ['sedan', 0.18], ['hatch', 0.12], ['suv', 0.1], ['van', 0.07], ['taxi', 0.1], ['bus', 0.05]];
 
 export class Traffic {
   constructor(scene, roads, maxCars = 170) {
@@ -170,12 +170,13 @@ export class Traffic {
       }
       const c = new THREE.Color();
       for (let i = 0; i < n; i++) {
-        const hex = type === 'taxi' ? TAXI_COLOR : type === 'bus' ? BVG_YELLOW : PAINTS[Math.floor(this.rnd() * PAINTS.length)];
+        const pick = (a) => a[Math.floor(this.rnd() * a.length)];
+        const hex = type === 'taxi' ? TAXI_COLOR : type === 'bus' ? BVG_YELLOW : type === 'city' ? pick(CITY_PAINTS) : type === 'vision' ? pick(VISION_PAINTS) : pick(PAINTS);
         set.body.setColorAt(i, c.setHex(hex));
       }
       this.meshes[type] = set;
     }
-    this.length = { sedan: 4.7, hatch: 4.1, suv: 4.8, van: 5.3, taxi: 4.7, bus: 12 };
+    this.length = { sedan: 4.7, hatch: 4.1, suv: 4.8, van: 5.3, taxi: 4.7, bus: 12, city: 3.8, vision: 5.15, sport: 4.5 };
     this.grid = new Map();
     this.m4 = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.p = new THREE.Vector3(); this.one = new THREE.Vector3(1, 1, 1); this.zero = new THREE.Vector3(0, 0, 0); this.up = new THREE.Vector3(0, 1, 0);
   }

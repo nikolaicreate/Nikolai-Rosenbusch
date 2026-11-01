@@ -21,6 +21,7 @@ Dann `http://localhost:3000` (bzw. `:8080`) öffnen und **Losfahren** klicken. A
 | `weather` | `live`, `clear`, `cloudy`, `rain`, `storm`, `snow`, `fog` | Wetter erzwingen |
 | `time` | `live` oder Stunde, z. B. `21.5` | Tageszeit erzwingen |
 | `quality` | `ultra`, `high`, `medium`, `low` | Grafikstufe |
+| `car` | `city`, `vision`, `sport` | Fahrzeug wählen |
 | `autostart` | – | Startbildschirm überspringen |
 
 Beispiel: `?weather=rain&time=22` zeigt Berlin nachts im Regen.
@@ -56,7 +57,12 @@ Gamepads (RT/LT/linker Stick/A) und Touch-Tasten auf dem Handy werden ebenfalls 
 
 - **Live-Verkehr braucht einen API-Key.** Kostenlose, offene Echtzeit-Verkehrsdaten mit Browser-Zugriff gibt es für Berlin nicht. Mit einem kostenlosen Key von [developer.tomtom.com](https://developer.tomtom.com) (im Menü eintragen, er bleibt im Browser) kommen Geschwindigkeit und Staustufe aus echten Messungen. Ohne Key berechnet ein Modell die Dichte aus Wochentag und Uhrzeit, und das HUD zeigt dann **„Modell“** statt **„Live“**.
 - **Die einzelnen KI-Autos sind simuliert.** Ihre Anzahl, ihr Tempo und die Farben auf der Karte richten sich nach der Live- bzw. Modell-Verkehrslage. Echte Fahrzeugpositionen sind öffentlich nicht verfügbar.
-- **Fahrzeugmodelle** sind eigene, prozedural erzeugte Typen (Limousine, Kompaktwagen, SUV, Transporter, Taxi in Hellelfenbein, BVG-Bus). Lizenzierte Originalmodelle echter Hersteller sind nicht enthalten.
+- **Fahrzeugmodelle** sind eigene, prozedural erzeugte Typen. Spielbar (Menü → Fahrzeug, oder `?car=city|vision|sport`):
+  - **City EV:** kleiner Retro-Stromer mit runden LED-Ringscheinwerfern, schwarzem Kontrastdach und weißen Scheibenrädern
+  - **Vision:** flache Konzept-Limousine mit schwebendem Flügeldach, durchgehendem Lichtband und Aero-Turbinenfelgen
+  - **Coupé:** Sportwagen mit Heckspoiler
+
+  Im Verkehr fahren außerdem Limousinen, Kompaktwagen, SUVs, Transporter, Taxis in Hellelfenbein und BVG-Busse. Die Formen orientieren sich an aktuellem französischem Konzept-Design. Herstellerlogos, Markennamen und lizenzierte Originalmodelle sind bewusst nicht enthalten.
 - Ist OpenStreetMap nicht erreichbar, baut das Spiel ein **vereinfachtes Modell von Mitte** mit echten Straßennamen, Spree, Tiergarten und Berliner Blockrandbebauung.
 
 ## Aufbau

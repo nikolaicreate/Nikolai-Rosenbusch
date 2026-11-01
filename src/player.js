@@ -5,30 +5,19 @@ import { buildCarGeometry, makeCarMaterials } from './cars.js';
 const GEAR_TOP = [0, 13, 24, 36, 49, 63, 80]; // m/s pro Gang
 
 export class Player {
-  constructor(scene, paint = 0xff5a1f) {
-    const g = buildCarGeometry('sport', { separateWheels: true });
-    this.params = g.params;
+  constructor(scene, paint = 0xf05a1a, model = 'city') {
     this.mats = makeCarMaterials(paint);
     this.mats.lights = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
     this.group = new THREE.Group();
     this.body = new THREE.Group();
     this.group.add(this.body);
-    for (const part of ['body', 'glass', 'detail', 'lights']) {
-      const m = new THREE.Mesh(g[part], this.mats[part]);
-      m.castShadow = part !== 'lights'; m.receiveShadow = part === 'body';
-      this.body.add(m);
-    }
-    this.wheels = g.wheels.map((w) => {
-      const pivot = new THREE.Group(); pivot.position.set(...w.pos);
-      const mesh = new THREE.Mesh(w.geo, this.mats.detail); mesh.castShadow = true;
-      pivot.add(mesh); this.group.add(pivot);
-      return { pivot, mesh, front: w.front };
-    });
+    this.wheels = [];
+    this.setModel(model);
     // Scheinwerfer
     this.headlights = [];
     for (const sx of [-0.65, 0.65]) {
       const s = new THREE.SpotLight(0xfff1d6, 0, 90, 0.5, 0.45, 1.2);
-      s.position.set(sx, 0.6, 2.2);
+      s.position.set(sx, 0.6, this.params.L / 2 - 0.2);
       s.target.position.set(sx * 1.5, -0.6, 22);
       this.group.add(s, s.target);
       this.headlights.push(s);
@@ -48,7 +37,26 @@ export class Player {
     this.wheelSpin = 0; this.roll = 0; this.pitch = 0;
     this.grip = 1; this.lightsOn = false; this.autoLights = true; this.braking = false;
     this.impact = 0;
-    this.wheelbase = this.params.wf - this.params.wr;
+  }
+  setModel(model) {
+    const g = buildCarGeometry(model, { separateWheels: true });
+    this.model = model;
+    this.params = g.params;
+    this.wheelbase = g.params.wf - g.params.wr;
+    for (const c of [...this.body.children]) { this.body.remove(c); c.geometry.dispose(); }
+    for (const w of this.wheels) { this.group.remove(w.pivot); w.mesh.geometry.dispose(); }
+    for (const part of ['body', 'glass', 'detail', 'lights']) {
+      const m = new THREE.Mesh(g[part], this.mats[part]);
+      m.castShadow = part !== 'lights'; m.receiveShadow = part === 'body';
+      this.body.add(m);
+    }
+    this.wheels = g.wheels.map((w) => {
+      const pivot = new THREE.Group(); pivot.position.set(...w.pos);
+      const mesh = new THREE.Mesh(w.geo, this.mats.detail); mesh.castShadow = true;
+      pivot.add(mesh); this.group.add(pivot);
+      return { pivot, mesh, front: w.front };
+    });
+    for (const h of this.headlights || []) h.position.z = g.params.L / 2 - 0.2;
   }
   setPaint(hex) { this.mats.body.color.setHex(hex); }
   place(x, z, heading) { this.x = x; this.z = z; this.heading = heading; this.vx = this.vz = 0; this.yawRate = 0; }

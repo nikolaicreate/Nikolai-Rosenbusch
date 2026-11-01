@@ -23,7 +23,8 @@ const settings = {
   weather: params.get('weather') || store.get('weather', 'live'),
   time: params.get('time') || store.get('time', 'live'),
   quality: params.get('quality') || store.get('quality', 'high'),
-  color: store.get('color', '0xff5a1f'),
+  color: store.get('color', '0xf05a1a'),
+  model: params.get('car') || store.get('model', 'city'),
   tomtom: store.get('tomtom', ''),
 };
 
@@ -89,7 +90,7 @@ async function init() {
   await new Promise((r) => setTimeout(r, 30));
   traffic = new Traffic(scene, data.roads, settings.quality === 'low' ? 90 : 170);
   traffic.live.key = settings.tomtom;
-  player = new Player(scene, Number(settings.color));
+  player = new Player(scene, Number(settings.color), settings.model);
   resetPlayer(true);
   await weatherP;
   loadStep(85, 'Hole Live-Verkehrslage …');
@@ -178,11 +179,12 @@ function readInput() {
 }
 
 // ---------------------------------------------------------------- Menü
-const sel = { weather: $('opt-weather'), time: $('opt-time'), quality: $('opt-quality'), color: $('opt-color'), tomtom: $('opt-tomtom') };
+const sel = { weather: $('opt-weather'), time: $('opt-time'), quality: $('opt-quality'), model: $('opt-model'), color: $('opt-color'), tomtom: $('opt-tomtom') };
 for (const [k, el] of Object.entries(sel)) el.value = settings[k];
 sel.weather.onchange = () => { settings.weather = sel.weather.value; weather.override = settings.weather; store.set('weather', settings.weather); };
 sel.time.onchange = () => { settings.time = sel.time.value; store.set('time', settings.time); };
 sel.quality.onchange = () => { settings.quality = sel.quality.value; store.set('quality', settings.quality); setupComposer(); };
+sel.model.onchange = () => { settings.model = sel.model.value; store.set('model', settings.model); player.setModel(settings.model); };
 sel.color.onchange = () => { settings.color = sel.color.value; store.set('color', settings.color); player.setPaint(Number(settings.color)); };
 sel.tomtom.onchange = async () => {
   settings.tomtom = sel.tomtom.value.trim(); store.set('tomtom', settings.tomtom);
