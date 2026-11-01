@@ -3,6 +3,11 @@ import * as THREE from 'three';
 import { buildCarGeometry, makeCarMaterials } from './cars.js';
 
 const GEAR_TOP = [0, 13, 24, 36, 49, 63, 80]; // m/s pro Gang
+// Beschleunigung (m/s²) und Höchstgeschwindigkeit (m/s) je Fahrzeugtyp
+export const PERF = {
+  sport: [10.5, 72], vision: [9.5, 64], city: [7.8, 42], sedan: [8, 58], hatch: [7.2, 52], suv: [7.5, 54],
+  van: [5.5, 44], taxi: [8, 56], bus: [3.2, 24], dd: [2.8, 22],
+};
 
 export class Player {
   constructor(scene, paint = 0xf05a1a, model = 'city') {
@@ -38,10 +43,16 @@ export class Player {
     this.grip = 1; this.lightsOn = false; this.autoLights = true; this.braking = false;
     this.impact = 0;
   }
+  get length() { return this.params.L; }
+  setVisible(v) { this.group.visible = v; }
   setModel(model) {
     const g = buildCarGeometry(model, { separateWheels: true });
     this.model = model;
     this.params = g.params;
+    this.perf = PERF[model] || PERF.sedan;
+    const half = g.params.L / 2 - 1.0;
+    this.circles = g.params.L > 6 ? [half, half / 2, 0, -half / 2, -half] : [half, -half];
+    this.radius = g.params.W / 2 + 0.1;
     this.wheelbase = g.params.wf - g.params.wr;
     for (const c of [...this.body.children]) { this.body.remove(c); c.geometry.dispose(); }
     for (const w of this.wheels) { this.group.remove(w.pivot); w.mesh.geometry.dispose(); }
@@ -78,7 +89,7 @@ export class Player {
     this.braking = false;
     if (input.throttle > 0) {
       if (vf < -0.5) { acc = 16 * input.throttle; this.braking = true; }
-      else acc = 10.5 * input.throttle * Math.max(0.08, 1 - Math.pow(Math.max(0, vf) / 72, 1.6));
+      else acc = this.perf[0] * input.throttle * Math.max(0.08, 1 - Math.pow(Math.max(0, vf) / this.perf[1], 1.6));
     }
     if (input.brake > 0) {
       if (vf > 0.5) { acc -= 17 * input.brake; this.braking = true; }
@@ -113,9 +124,9 @@ export class Player {
 
     // Kollision Gebäude (zwei Kreise)
     this.impact = Math.max(0, this.impact - dt * 2);
-    for (const off of [1.3, -1.3]) {
+    for (const off of this.circles) {
       const cx = this.x + nfx * off, cz = this.z + nfz * off;
-      const r = world.colliders.resolveCircle(cx, cz, 1.05);
+      const r = world.colliders.resolveCircle(cx, cz, this.radius);
       if (r.hit) {
         this.x += r.x - cx; this.z += r.z - cz;
         const vn = this.vx * r.nx + this.vz * r.nz;
@@ -127,7 +138,11 @@ export class Player {
       }
     }
     // Kollision Verkehr
-    const c = traffic.collidePlayer(this.x, this.z, 1.25);
+    let c = { hit: false, px: 0, pz: 0 };
+    for (const off of this.circles) {
+      const cc = traffic.collidePlayer(this.x + nfx * off, this.z + nfz * off, this.radius + 0.2);
+      if (cc.hit) { c.hit = true; c.px += cc.px; c.pz += cc.pz; }
+    }
     if (c.hit) {
       this.x += c.px; this.z += c.pz;
       const l = Math.hypot(c.px, c.pz) || 1; const nx = c.px / l, nz = c.pz / l;
@@ -137,7 +152,7 @@ export class Player {
     }
 
     if (rail) {
-      const t = rail.collidePlayer(this.x, this.z, 1.25);
+      const t = rail.collidePlayer(this.x, this.z, this.radius + 0.2);
       if (t.hit) {
         this.x += t.px; this.z += t.pz;
         const l = Math.hypot(t.px, t.pz) || 1; const nx = t.px / l, nz = t.pz / l;
@@ -208,7 +223,7 @@ export class CarAudio {
       this.windGain = mkNoise('lowpass', 500);
     } catch (e) { console.warn('Audio nicht verfügbar', e); this.ctx = null; }
   }
-  update(player, rain, input) {
+  update(player, rain, input, engineOn = true) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const f = 28 + player.rpm / 60 * 0.9;
@@ -216,7 +231,7 @@ export class CarAudio {
     this.osc[1].frequency.setTargetAtTime(f * 0.5, t, 0.03);
     this.osc[2].frequency.setTargetAtTime(f * 1.01 * 2, t, 0.03);
     this.filter.frequency.setTargetAtTime(500 + player.rpm * 0.25 + (input.throttle ? 900 : 0), t, 0.05);
-    this.engineGain.gain.setTargetAtTime(0.09 + (input.throttle ? 0.1 : 0.02), t, 0.08);
+    this.engineGain.gain.setTargetAtTime(engineOn ? 0.09 + (input.throttle ? 0.1 : 0.02) : 0, t, 0.08);
     this.rainGain.gain.setTargetAtTime(rain * 0.12, t, 0.5);
     const skid = player.speed > 6 ? Math.min(1, Math.max(0, player.slip - 2.5) / 6) : 0;
     this.skidGain.gain.setTargetAtTime(skid * 0.18, t, 0.05);

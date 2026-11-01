@@ -5,13 +5,24 @@ import { ROAD_TYPES, LANDMARKS, ringArea, pointInRing, mulberry32, EXTENT } from
 
 // ---------------------------------------------------------------- Kollision
 export class Colliders {
-  constructor(cell = 40) { this.cell = cell; this.grid = new Map(); this.polys = []; this.stamp = 0; }
+  constructor(cell = 40) { this.cell = cell; this.grid = new Map(); this.byTag = new Map(); this.stamp = 0; }
   key(ix, iz) { return ix * 73856093 ^ iz * 19349663; }
-  add(ring) {
+  removeTag(tag) {
+    const polys = this.byTag.get(tag); if (!polys) return;
+    const set = new Set(polys);
+    for (const poly of polys)
+      for (let ix = Math.floor(poly.minX / this.cell); ix <= Math.floor(poly.maxX / this.cell); ix++)
+        for (let iz = Math.floor(poly.minZ / this.cell); iz <= Math.floor(poly.maxZ / this.cell); iz++) {
+          const k = this.key(ix, iz); const a = this.grid.get(k); if (!a) continue;
+          const f = a.filter((p) => !set.has(p)); if (f.length) this.grid.set(k, f); else this.grid.delete(k);
+        }
+    this.byTag.delete(tag);
+  }
+  add(ring, tag = 'static') {
     let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
     for (const [x, z] of ring) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
     const poly = { ring, minX, minZ, maxX, maxZ, s: 0 };
-    this.polys.push(poly);
+    let t = this.byTag.get(tag); if (!t) this.byTag.set(tag, (t = [])); t.push(poly);
     for (let ix = Math.floor(minX / this.cell); ix <= Math.floor(maxX / this.cell); ix++)
       for (let iz = Math.floor(minZ / this.cell); iz <= Math.floor(maxZ / this.cell); iz++) {
         const k = this.key(ix, iz);
@@ -63,16 +74,22 @@ export class Colliders {
 
 // ---------------------------------------------------------- Straßen-Index
 export class RoadIndex {
-  constructor(cell = 30) { this.cell = cell; this.grid = new Map(); }
-  add(road) {
+  constructor(cell = 30) { this.cell = cell; this.grid = new Map(); this.byTag = new Map(); }
+  removeTag(tag) {
+    const keys = this.byTag.get(tag); if (!keys) return;
+    for (const k of keys) { const a = this.grid.get(k); if (!a) continue; const f = a.filter((sg) => sg.tag !== tag); if (f.length) this.grid.set(k, f); else this.grid.delete(k); }
+    this.byTag.delete(tag);
+  }
+  add(road, tag = 'static') {
     const pts = road.pts;
+    let tk = this.byTag.get(tag); if (!tk) this.byTag.set(tag, (tk = new Set()));
     for (let i = 0; i < pts.length - 1; i++) {
       const [ax, az] = pts[i], [bx, bz] = pts[i + 1];
-      const seg = { ax, az, bx, bz, road };
+      const seg = { ax, az, bx, bz, road, tag };
       const x0 = Math.floor(Math.min(ax, bx) / this.cell), x1 = Math.floor(Math.max(ax, bx) / this.cell);
       const z0 = Math.floor(Math.min(az, bz) / this.cell), z1 = Math.floor(Math.max(az, bz) / this.cell);
       for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) {
-        const k = ix + ',' + iz; let a = this.grid.get(k); if (!a) this.grid.set(k, (a = [])); a.push(seg);
+        const k = ix + ',' + iz; let a = this.grid.get(k); if (!a) this.grid.set(k, (a = [])); a.push(seg); tk.add(k);
       }
     }
   }
@@ -201,7 +218,7 @@ function groundTexture(aniso) {
 }
 
 // ---------------------------------------------------------------- Gebäude
-function buildBuildings(buildings, colliders, mats) {
+function buildBuildings(buildings, colliders, mats, tag) {
   const W = { pos: [], nor: [], uv: [], col: [] };
   const Rf = { pos: [], nor: [], col: [] };
   const col = new THREE.Color();
@@ -263,7 +280,7 @@ function buildBuildings(buildings, colliders, mats) {
       if (cy < 0) [bb, c] = [c, bb];
       for (const p of [a, bb, c]) { Rf.pos.push(p[0], h, p[1]); Rf.nor.push(0, 1, 0); Rf.col.push(roofCol.r, roofCol.g, roofCol.b); }
     }
-    colliders.add(ring);
+    colliders.add(ring, tag);
   }
   const wg = new THREE.BufferGeometry();
   wg.setAttribute('position', new THREE.Float32BufferAttribute(W.pos, 3));
@@ -363,6 +380,22 @@ function brandenburgerTor(colliders) {
   return g;
 }
 
+function siegessaeule() {
+  const g = new THREE.Group();
+  const stone = new THREE.MeshStandardMaterial({ color: 0xcfc4ad, roughness: 0.8 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xd8a93a, metalness: 1, roughness: 0.25 });
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(14, 15, 7, 32), stone); base.position.y = 3.5; g.add(base);
+  const hall = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 8.5, 9, 24), stone); hall.position.y = 11.5; g.add(hall);
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.2, 38, 24), stone); col.position.y = 35; g.add(col);
+  for (const y of [22, 30, 38]) { const r = new THREE.Mesh(new THREE.TorusGeometry(3.1, 0.45, 8, 24), gold); r.rotation.x = Math.PI / 2; r.position.y = y; g.add(r); }
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(4, 3, 3, 16), stone); cap.position.y = 55; g.add(cap);
+  const vic = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.4, 7, 10), gold); vic.position.y = 60; g.add(vic);
+  const wings = new THREE.Mesh(new THREE.BoxGeometry(6, 2.2, 0.3), gold); wings.position.y = 62; wings.rotation.z = 0.15; g.add(wings);
+  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  g.position.set(LANDMARKS.siegessaeule[0], 0, LANDMARKS.siegessaeule[1]);
+  return g;
+}
+
 function fernsehturm() {
   const g = new THREE.Group();
   const concrete = new THREE.MeshStandardMaterial({ color: 0xd6d6d2, roughness: 0.8 });
@@ -386,19 +419,12 @@ function fernsehturm() {
   return g;
 }
 
-// ---------------------------------------------------------------- Welt bauen
-export function buildWorld(scene, data, renderer) {
+// ---------------------------------------------------------------- Welt (kachelweise)
+export function createWorld(scene, renderer) {
   const aniso = renderer.capabilities.getMaxAnisotropy();
   const colliders = new Colliders();
   const roadIndex = new RoadIndex();
-  const rnd = mulberry32(99);
-
-  // Gebäude am Tor-Standort entfernen (wird separat modelliert)
-  const [tX, tZ] = LANDMARKS.tor;
-  const buildings = data.buildings.filter((b) => {
-    const cx = b.ring.reduce((s, p) => s + p[0], 0) / b.ring.length, cz = b.ring.reduce((s, p) => s + p[1], 0) / b.ring.length;
-    return Math.hypot(cx - tX, cz - tZ) > 30;
-  });
+  const tiles = new Map();
 
   const fac = facadeTextures(aniso);
   const mats = {
@@ -410,151 +436,165 @@ export function buildWorld(scene, data, renderer) {
     water: new THREE.MeshStandardMaterial({ color: 0x2d5b73, roughness: 0.06, metalness: 0.4, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
     park: new THREE.MeshStandardMaterial({ color: 0x4f7d34, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
     ground: new THREE.MeshStandardMaterial({ map: groundTexture(aniso), roughness: 0.95 }),
+    crown: new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }),
+    trunk: new THREE.MeshStandardMaterial({ color: 0x4a3a2c, roughness: 1 }),
+    pole: new THREE.MeshStandardMaterial({ color: 0x2f3337, metalness: 0.6, roughness: 0.5 }),
+    lampHead: new THREE.MeshBasicMaterial({ color: 0x333333, toneMapped: false }),
   };
-  mats.ground.map.repeat.set(400, 400);
-  const base = {
-    road: new THREE.Color(0xffffff), roof: null, ground: new THREE.Color(0xffffff), park: new THREE.Color(0x4f7d34), sidewalk: new THREE.Color(0xa7a59f),
-  };
+  const poolTex = canvasTex(128, 128, (ctx, w) => { const g = ctx.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, 'rgba(255,200,130,0.9)'); g.addColorStop(1, 'rgba(255,200,130,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, w); }, { repeat: false });
+  mats.pool = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, toneMapped: false });
+  const base = { road: new THREE.Color(0xffffff), ground: new THREE.Color(0xffffff), park: new THREE.Color(0x4f7d34), sidewalk: new THREE.Color(0xa7a59f) };
 
-  // Boden
+  // Shared geometries
+  const blobs = [[0, 0, 0, 1], [0.55, -0.15, 0.2, 0.7], [-0.5, -0.1, -0.25, 0.72], [0.1, 0.45, -0.1, 0.65], [-0.15, -0.2, 0.55, 0.62]].map(([x, y, z, r]) => { const g = new THREE.IcosahedronGeometry(r, 1); g.translate(x, y, z); return g; });
+  const crownGeo = mergeGeometries(blobs);
+  { const pa = crownGeo.attributes.position; const nr = mulberry32(11); for (let i = 0; i < pa.count; i++) { const f = 0.9 + nr() * 0.2; pa.setXYZ(i, pa.getX(i) * f, pa.getY(i) * f, pa.getZ(i) * f); } crownGeo.computeVertexNormals(); }
+  const trunkGeo = new THREE.CylinderGeometry(0.18, 0.28, 1, 6); trunkGeo.translate(0, 0.5, 0);
+  const poleGeo = new THREE.CylinderGeometry(0.09, 0.14, 8, 6); poleGeo.translate(0, 4, 0);
+  const headGeo = new THREE.BoxGeometry(0.5, 0.18, 1.2); headGeo.translate(0, 7.9, 0.6);
+  const poolGeo = new THREE.PlaneGeometry(16, 16); poolGeo.rotateX(-Math.PI / 2);
+
+  // Boden folgt dem Spieler
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), mats.ground);
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  mats.ground.map.repeat.set(400, 400);
 
-  // Wasser & Parks
-  const waterGeo = polygonsGeo(data.water, 0.02);
-  if (waterGeo) { const m = new THREE.Mesh(waterGeo, mats.water); m.receiveShadow = true; scene.add(m); }
-  const parkGeo = polygonsGeo(data.parks, 0.03);
-  if (parkGeo) { const m = new THREE.Mesh(parkGeo, mats.park); m.receiveShadow = true; scene.add(m); }
-
-  // Straßen
-  const major = { pos: [], nor: [], uv: [], idx: [] }, minor = { pos: [], nor: [], uv: [], idx: [] }, walk = { pos: [], nor: [], uv: [], idx: [] };
-  data.roads.forEach((r, i) => {
-    const def = ROAD_TYPES[r.type];
-    roadIndex.add(r);
-    const jitter = (i % 9) * 0.008;
-    if (r.type === 'pedestrian') { ribbon(r.pts, r.width, 0.05 + jitter, walk, 10); return; }
-    if (r.type !== 'service') ribbon(r.pts, r.width + 6, 0.04 + jitter * 0.5, walk, 10);
-    ribbon(r.pts, r.width, (def.major ? 0.09 : 0.07) + jitter, def.major ? major : minor, 12);
-  });
-  for (const [out, mat] of [[walk, mats.sidewalk], [minor, mats.roadMinor], [major, mats.roadMajor]]) {
-    if (!out.idx.length) continue;
-    const m = new THREE.Mesh(ribbonGeo(out), mat); m.receiveShadow = true; scene.add(m);
-  }
-
-  // Gebäude
-  const [walls, roofs] = buildBuildings(buildings, colliders, mats);
-  scene.add(walls, roofs);
-
-  // Wahrzeichen
+  // Wahrzeichen (immer sichtbar, auch aus der Ferne)
   scene.add(brandenburgerTor(colliders));
-  const tower = fernsehturm();
-  scene.add(tower);
+  const tower = fernsehturm(); scene.add(tower);
+  scene.add(siegessaeule());
+  colliders.add([[LANDMARKS.siegessaeule[0] - 14, LANDMARKS.siegessaeule[1] - 14], [LANDMARKS.siegessaeule[0] + 14, LANDMARKS.siegessaeule[1] - 14], [LANDMARKS.siegessaeule[0] + 14, LANDMARKS.siegessaeule[1] + 14], [LANDMARKS.siegessaeule[0] - 14, LANDMARKS.siegessaeule[1] + 14]]);
+  colliders.add([[LANDMARKS.fernsehturm[0] - 30, LANDMARKS.fernsehturm[1] - 30], [LANDMARKS.fernsehturm[0] + 30, LANDMARKS.fernsehturm[1] - 30], [LANDMARKS.fernsehturm[0] + 30, LANDMARKS.fernsehturm[1] + 30], [LANDMARKS.fernsehturm[0] - 30, LANDMARKS.fernsehturm[1] + 30]]);
 
-  // Bäume (Parks + Straßenbäume, Linden auf „Unter den Linden“)
-  const trees = [];
-  const free = (x, z) => !colliders.inside(x, z);
-  for (const r of data.roads) {
-    const def = ROAD_TYPES[r.type];
-    const linden = /Unter den Linden|17\. Juni/.test(r.name);
-    if (!def.major && r.type !== 'residential' && !(linden && r.type === 'pedestrian')) continue;
-    const ped = r.type === 'pedestrian';
-    const offsets = ped ? [r.width / 2 - 1.5, -(r.width / 2 - 1.5)] : [r.width / 2 + 2.2, -(r.width / 2 + 2.2)];
-    const step = linden ? 11 : 16;
-    for (let i = 0; i < r.pts.length - 1; i++) {
-      const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1];
-      const L = Math.hypot(bx - ax, bz - az); if (L < 1) continue;
-      const nx = -(bz - az) / L, nz = (bx - ax) / L;
-      for (let s = step / 2; s < L; s += step) {
-        for (const off of offsets) {
+  const crowns = [];
+  let lastSnow = -1;
+
+  function addTile(id, data, bounds) {
+    const group = new THREE.Group();
+    const tag = 'tile:' + id;
+    const rnd = mulberry32(Math.abs(id.split(',').reduce((a, v) => a * 31 + Number(v), 7)) + 99);
+    const [tX, tZ] = LANDMARKS.tor;
+    const buildings = data.buildings.filter((b) => {
+      const cx = b.ring.reduce((s, p) => s + p[0], 0) / b.ring.length, cz = b.ring.reduce((s, p) => s + p[1], 0) / b.ring.length;
+      return Math.hypot(cx - tX, cz - tZ) > 30 && Math.hypot(cx - LANDMARKS.fernsehturm[0], cz - LANDMARKS.fernsehturm[1]) > 30 && Math.hypot(cx - LANDMARKS.siegessaeule[0], cz - LANDMARKS.siegessaeule[1]) > 20;
+    });
+    const waterGeo = polygonsGeo(data.water, 0.02);
+    if (waterGeo) { const m = new THREE.Mesh(waterGeo, mats.water); m.receiveShadow = true; group.add(m); }
+    const parkGeo = polygonsGeo(data.parks, 0.03);
+    if (parkGeo) { const m = new THREE.Mesh(parkGeo, mats.park); m.receiveShadow = true; group.add(m); }
+
+    const major = { pos: [], nor: [], uv: [], idx: [] }, minor = { pos: [], nor: [], uv: [], idx: [] }, walk = { pos: [], nor: [], uv: [], idx: [] };
+    data.roads.forEach((r, i) => {
+      const def = ROAD_TYPES[r.type];
+      roadIndex.add(r, tag);
+      const jitter = (i % 9) * 0.008;
+      if (r.type === 'pedestrian') { ribbon(r.pts, r.width, 0.05 + jitter, walk, 10); return; }
+      if (r.type !== 'service') ribbon(r.pts, r.width + 6, 0.04 + jitter * 0.5, walk, 10);
+      ribbon(r.pts, r.width, (def.major ? 0.09 : 0.07) + jitter, def.major ? major : minor, 12);
+    });
+    for (const [out, mat] of [[walk, mats.sidewalk], [minor, mats.roadMinor], [major, mats.roadMajor]]) {
+      if (!out.idx.length) continue;
+      const m = new THREE.Mesh(ribbonGeo(out), mat); m.receiveShadow = true; group.add(m);
+    }
+    if (buildings.length) { const [walls, roofs] = buildBuildings(buildings, colliders, mats, tag); group.add(walls, roofs); }
+
+    // Bäume
+    const trees = [];
+    const free = (x, z) => !colliders.inside(x, z);
+    for (const r of data.roads) {
+      const def = ROAD_TYPES[r.type];
+      const linden = /Unter den Linden|17\. Juni/.test(r.name);
+      if (!def.major && r.type !== 'residential' && !(linden && r.type === 'pedestrian')) continue;
+      const ped = r.type === 'pedestrian';
+      const offsets = ped ? [r.width / 2 - 1.5, -(r.width / 2 - 1.5)] : [r.width / 2 + 2.2, -(r.width / 2 + 2.2)];
+      const step = linden ? 11 : 16;
+      for (let i = 0; i < r.pts.length - 1; i++) {
+        const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1];
+        const L = Math.hypot(bx - ax, bz - az); if (L < 1) continue;
+        const nx = -(bz - az) / L, nz = (bx - ax) / L;
+        for (let s = step / 2; s < L; s += step) for (const off of offsets) {
           if (!linden && rnd() < 0.4) continue;
           const x = ax + ((bx - ax) * s) / L + nx * off, z = az + ((bz - az) * s) / L + nz * off;
-          const near = roadIndex.nearest(x, z, 3.5, (rr) => ROAD_TYPES[rr.type].drive && rr !== r);
-          if (free(x, z) && !near) trees.push([x, z, linden ? 0.9 : 0.75 + rnd() * 0.4]);
+          if (free(x, z) && !roadIndex.nearest(x, z, 3.5, (rr) => ROAD_TYPES[rr.type].drive && rr !== r)) trees.push([x, z, linden ? 0.9 : 0.75 + rnd() * 0.4]);
         }
       }
     }
-  }
-  for (const ring of data.parks) {
-    let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
-    for (const [x, z] of ring) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
-    minX = Math.max(minX, EXTENT.minX - 900); maxX = Math.min(maxX, EXTENT.maxX + 300); minZ = Math.max(minZ, EXTENT.minZ - 400); maxZ = Math.min(maxZ, EXTENT.maxZ + 400);
-    const area = Math.max(0, (maxX - minX) * (maxZ - minZ));
-    const count = Math.min(2500, area / 220);
-    for (let i = 0; i < count && trees.length < 9000; i++) {
-      const x = minX + rnd() * (maxX - minX), z = minZ + rnd() * (maxZ - minZ);
-      if (pointInRing(x, z, ring) && free(x, z) && !roadIndex.nearest(x, z, 9)) trees.push([x, z, 0.8 + rnd() * 0.7]);
-    }
-  }
-  if (trees.length) {
-    // Krone aus mehreren Blobs mit leichtem Rauschen
-    const blobs = [[0, 0, 0, 1], [0.55, -0.15, 0.2, 0.7], [-0.5, -0.1, -0.25, 0.72], [0.1, 0.45, -0.1, 0.65], [-0.15, -0.2, 0.55, 0.62]].map(([x, y, z, r]) => {
-      const g = new THREE.IcosahedronGeometry(r, 1); g.translate(x, y, z); return g;
-    });
-    const crownGeo = mergeGeometries(blobs);
-    { const pa = crownGeo.attributes.position; const nr = mulberry32(11); for (let i = 0; i < pa.count; i++) { const f = 0.9 + nr() * 0.2; pa.setXYZ(i, pa.getX(i) * f, pa.getY(i) * f, pa.getZ(i) * f); } crownGeo.computeVertexNormals(); }
-    const trunkGeo = new THREE.CylinderGeometry(0.18, 0.28, 1, 6); trunkGeo.translate(0, 0.5, 0);
-    const crown = new THREE.InstancedMesh(crownGeo, new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }), trees.length);
-    const trunk = new THREE.InstancedMesh(trunkGeo, new THREE.MeshStandardMaterial({ color: 0x4a3a2c, roughness: 1 }), trees.length);
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
-    trees.forEach(([x, z, k], i) => {
-      const hgt = 9 * k;
-      p.set(x, 0, z); s.set(1, hgt * 0.7, 1); m.compose(p, q.identity(), s); trunk.setMatrixAt(i, m);
-      p.set(x, hgt * 0.78, z); s.set(2.9 * k, 3.1 * k, 2.9 * k); q.setFromEuler(new THREE.Euler(0, rnd() * 6, 0)); m.compose(p, q, s); crown.setMatrixAt(i, m);
-      c.setHSL(0.2 + rnd() * 0.09, 0.35 + rnd() * 0.2, 0.13 + rnd() * 0.08); crown.setColorAt(i, c);
-    });
-    crown.castShadow = trunk.castShadow = true; crown.receiveShadow = true;
-    scene.add(crown, trunk);
-    mats.crown = crown.material; base.crownColors = crown.instanceColor.array.slice();
-    mats.crownMesh = crown;
-  }
-
-  // Straßenlaternen
-  const lamps = [];
-  for (const r of data.roads) {
-    if (!ROAD_TYPES[r.type].major) continue;
-    for (let i = 0; i < r.pts.length - 1; i++) {
-      const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1];
-      const L = Math.hypot(bx - ax, bz - az); if (L < 1) continue;
-      const nx = -(bz - az) / L, nz = (bx - ax) / L;
-      for (let s = 10; s < L; s += 34) for (const sd of [-1, 1]) {
-        const off = sd * (r.width / 2 + 0.8);
-        const x = ax + ((bx - ax) * s) / L + nx * off, z = az + ((bz - az) * s) / L + nz * off;
-        if (free(x, z)) lamps.push([x, z, Math.atan2(-nx * sd, -nz * sd)]);
+    for (const ring of data.parks) {
+      let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+      for (const [x, z] of ring) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
+      if (bounds) { minX = Math.max(minX, bounds.minX); maxX = Math.min(maxX, bounds.maxX); minZ = Math.max(minZ, bounds.minZ); maxZ = Math.min(maxZ, bounds.maxZ); }
+      const area = Math.max(0, (maxX - minX) * (maxZ - minZ));
+      const count = Math.min(1800, area / 240);
+      for (let i = 0; i < count && trees.length < 4000; i++) {
+        const x = minX + rnd() * (maxX - minX), z = minZ + rnd() * (maxZ - minZ);
+        if (pointInRing(x, z, ring) && free(x, z) && !roadIndex.nearest(x, z, 9)) trees.push([x, z, 0.8 + rnd() * 0.7]);
       }
     }
-  }
-  let lampHeads = null;
-  if (lamps.length) {
-    const poleGeo = new THREE.CylinderGeometry(0.09, 0.14, 8, 6); poleGeo.translate(0, 4, 0);
-    const headGeo = new THREE.BoxGeometry(0.5, 0.18, 1.2); headGeo.translate(0, 7.9, 0.6);
-    const pole = new THREE.InstancedMesh(poleGeo, new THREE.MeshStandardMaterial({ color: 0x2f3337, metalness: 0.6, roughness: 0.5 }), lamps.length);
-    lampHeads = new THREE.InstancedMesh(headGeo, new THREE.MeshBasicMaterial({ color: 0x333333, toneMapped: false }), lamps.length);
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3();
-    lamps.forEach(([x, z, a], i) => { p.set(x, 0, z); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), a); m.compose(p, q, one); pole.setMatrixAt(i, m); lampHeads.setMatrixAt(i, m); });
-    pole.castShadow = true;
-    scene.add(pole, lampHeads);
-  }
-  // Lichtkegel auf dem Boden (billiger als echte Punktlichter)
-  let lampPools = null;
-  if (lamps.length) {
-    const tex = canvasTex(128, 128, (ctx, w) => { const g = ctx.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, 'rgba(255,200,130,0.9)'); g.addColorStop(1, 'rgba(255,200,130,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, w); }, { repeat: false });
-    const poolGeo = new THREE.PlaneGeometry(16, 16); poolGeo.rotateX(-Math.PI / 2);
-    lampPools = new THREE.InstancedMesh(poolGeo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, toneMapped: false }), lamps.length);
-    const m = new THREE.Matrix4();
-    lamps.forEach(([x, z, a], i) => { m.makeTranslation(x + Math.sin(a) * 1.5, 0.15, z + Math.cos(a) * 1.5); lampPools.setMatrixAt(i, m); });
-    lampPools.renderOrder = 2;
-    scene.add(lampPools);
+    let crown = null;
+    if (trees.length) {
+      crown = new THREE.InstancedMesh(crownGeo, mats.crown, trees.length);
+      const trunk = new THREE.InstancedMesh(trunkGeo, mats.trunk, trees.length);
+      const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
+      trees.forEach(([x, z, k], i) => {
+        const hgt = 9 * k;
+        p.set(x, 0, z); sc.set(1, hgt * 0.7, 1); m.compose(p, q.identity(), sc); trunk.setMatrixAt(i, m);
+        p.set(x, hgt * 0.78, z); sc.set(2.9 * k, 3.1 * k, 2.9 * k); q.setFromEuler(new THREE.Euler(0, rnd() * 6, 0)); m.compose(p, q, sc); crown.setMatrixAt(i, m);
+        c.setHSL(0.2 + rnd() * 0.09, 0.35 + rnd() * 0.2, 0.13 + rnd() * 0.08); crown.setColorAt(i, c);
+      });
+      crown.castShadow = trunk.castShadow = true; crown.receiveShadow = true;
+      crown.userData.base = crown.instanceColor.array.slice();
+      crowns.push(crown); group.add(crown, trunk);
+      lastSnow = -1;
+    }
+    // Laternen
+    const lamps = [];
+    for (const r of data.roads) {
+      if (!ROAD_TYPES[r.type].major) continue;
+      for (let i = 0; i < r.pts.length - 1; i++) {
+        const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1];
+        const L = Math.hypot(bx - ax, bz - az); if (L < 1) continue;
+        const nx = -(bz - az) / L, nz = (bx - ax) / L;
+        for (let s = 10; s < L; s += 34) for (const sd of [-1, 1]) {
+          const off = sd * (r.width / 2 + 0.8);
+          const x = ax + ((bx - ax) * s) / L + nx * off, z = az + ((bz - az) * s) / L + nz * off;
+          if (free(x, z)) lamps.push([x, z, Math.atan2(-nx * sd, -nz * sd)]);
+        }
+      }
+    }
+    if (lamps.length) {
+      const pole = new THREE.InstancedMesh(poleGeo, mats.pole, lamps.length);
+      const head = new THREE.InstancedMesh(headGeo, mats.lampHead, lamps.length);
+      const pool = new THREE.InstancedMesh(poolGeo, mats.pool, lamps.length);
+      const m = new THREE.Matrix4(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+      lamps.forEach(([x, z, a], i) => {
+        p.set(x, 0, z); q.setFromAxisAngle(up, a); m.compose(p, q, one); pole.setMatrixAt(i, m); head.setMatrixAt(i, m);
+        m.makeTranslation(x + Math.sin(a) * 1.5, 0.15, z + Math.cos(a) * 1.5); pool.setMatrixAt(i, m);
+      });
+      pole.castShadow = true; pool.renderOrder = 2;
+      group.add(pole, head, pool);
+    }
+    scene.add(group);
+    tiles.set(id, { group, crown });
   }
 
-  // --- Wetter/Tageszeit auf Materialien anwenden
-  const dryRoad = 0.92;
+  function removeTile(id) {
+    const t = tiles.get(id); if (!t) return;
+    scene.remove(t.group);
+    t.group.traverse((o) => { if (o.isMesh && o.geometry !== crownGeo && o.geometry !== trunkGeo && o.geometry !== poleGeo && o.geometry !== headGeo && o.geometry !== poolGeo) o.geometry.dispose(); if (o.isInstancedMesh) o.dispose(); });
+    if (t.crown) crowns.splice(crowns.indexOf(t.crown), 1);
+    colliders.removeTag('tile:' + id);
+    roadIndex.removeTag('tile:' + id);
+    tiles.delete(id);
+  }
+
   const snowWhite = new THREE.Color(0xf4f6f8);
-  function applyEnvironment({ night, wet, snow, t }) {
+  function applyEnvironment({ night, wet, snow, t, x, z }) {
+    if (x !== undefined) { ground.position.x = Math.round(x / 64) * 64; ground.position.z = Math.round(z / 64) * 64; }
     mats.wall.emissiveIntensity = night * 1.6;
-    if (lampHeads) lampHeads.material.color.setRGB(0.25 + night * 5, 0.25 + night * 4.2, 0.25 + night * 2.6);
-    if (lampPools) lampPools.material.opacity = night * 0.55;
+    mats.lampHead.color.setRGB(0.25 + night * 5, 0.25 + night * 4.2, 0.25 + night * 2.6);
+    mats.pool.opacity = night * 0.55;
     for (const m of [mats.roadMajor, mats.roadMinor]) {
-      m.roughness = THREE.MathUtils.lerp(dryRoad, 0.18, wet);
+      m.roughness = THREE.MathUtils.lerp(0.92, 0.18, wet);
       m.metalness = wet * 0.25;
       m.color.copy(base.road).multiplyScalar(1 - wet * 0.35).lerp(snowWhite, snow * 0.55);
     }
@@ -563,13 +603,16 @@ export function buildWorld(scene, data, renderer) {
     mats.ground.color.copy(base.ground).lerp(snowWhite, snow * 0.9);
     mats.park.color.copy(base.park).lerp(snowWhite, snow * 0.92);
     mats.roof.color.setRGB(1, 1, 1).lerp(new THREE.Color(3.2, 3.2, 3.3), snow);
-    if (mats.crownMesh) {
-      const arr = mats.crownMesh.instanceColor.array, src = base.crownColors;
-      for (let i = 0; i < arr.length; i++) arr[i] = src[i] + (0.85 - src[i]) * snow * 0.7;
-      mats.crownMesh.instanceColor.needsUpdate = true;
+    if (Math.abs(snow - lastSnow) > 0.01) {
+      lastSnow = snow;
+      for (const cm of crowns) {
+        const arr = cm.instanceColor.array, src = cm.userData.base;
+        for (let i = 0; i < arr.length; i++) arr[i] = src[i] + (0.85 - src[i]) * snow * 0.7;
+        cm.instanceColor.needsUpdate = true;
+      }
     }
     tower.userData.beacon.visible = Math.sin(t * 3) > 0 || night < 0.3;
   }
 
-  return { colliders, roadIndex, mats, applyEnvironment, buildings };
+  return { colliders, roadIndex, mats, applyEnvironment, addTile, removeTile, tiles };
 }

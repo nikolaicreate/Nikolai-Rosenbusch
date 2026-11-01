@@ -2,6 +2,10 @@
 
 Ein Open-World-Fahrspiel im Browser. Man fährt durch ein 3D-Berlin-Mitte, das aus **echten OpenStreetMap-Daten** gebaut wird, mit **Live-Wetter**, **echtem Sonnenstand** und **Live-Verkehr** (optional über TomTom). Die Optik ist filmisch angelegt: ACES-Tonemapping, Umgebungsverdeckung (GTAO), Bloom, Color Grading mit Vignette und Filmkorn, weiche Schatten, nasse Straßen, Nacht mit beleuchteten Fenstern und Schaufenstern.
 
+**Ganz Berlin:** Die Stadt wird in Kacheln von 1 × 1 km um dich herum nachgeladen, von Spandau bis Köpenick und von Reinickendorf bis Rudow. Mit Internetzugang kommen Gebäude, Straßen, Gewässer, Parks und Gleise je Kachel aus OpenStreetMap (im Browser 30 Tage zwischengespeichert). Ohne Zugang erzeugt das Spiel ein Modell-Berlin: Altbau-Blöcke in der Innenstadt, Plattenbauten in Marzahn, Hellersdorf, Hohenschönhausen und Gropiusstadt, Einfamilienhäuser am Stadtrand, dazu Tiergarten, Tempelhofer Feld und Grunewald. Der Ortsteil wird beim Überfahren eingeblendet.
+
+**Aussteigen und Fahrzeuge wechseln:** Mit **F** steigst du aus und gehst zu Fuß weiter (Shift: rennen). Dein Auto bleibt geparkt stehen. Mit **F** neben einem Fahrzeug steigst du ein: in dein geparktes Auto, in jedes Auto, Taxi und jeden Bus im Verkehr (der Fahrer steigt aus und überlässt es dir) oder in eine Straßenbahn bzw. S-Bahn, die du dann selbst fährst (W fahren, S bremsen). Busse fahren sich träge, der City EV wendig.
+
 **Leben in der Stadt:**
 - **Fußgänger** (bis zu ~480, je nach Grafikstufe und Tageszeit) laufen animiert über die Gehwege, spannen bei Regen Schirme auf und springen beiseite, wenn ein Auto zu nahe kommt.
 - **Straßenbahnen** in BVG-Gelb als fünfteilige Gelenkzüge auf echten Gleisen (OSM `railway=tram`), mit Oberleitung, Haltestellenstopps; sie bremsen für dein Auto.
@@ -53,6 +57,8 @@ Beispiel: `?weather=rain&time=22` zeigt Berlin nachts im Regen.
 | S / ↓ | Bremse / Rückwärts |
 | A D / ← → | Lenken |
 | Leertaste | Handbremse (Drift) |
+| F / E | Aussteigen bzw. Einsteigen (Auto, Bus, Tram, S-Bahn) |
+| Shift | Rennen (zu Fuß) |
 | C | Kamera wechseln (nah, fern, Cockpit, Kinokamera) |
 | M | Vollbildkarte mit Verkehrs-Layer |
 | H | Hupe |
@@ -100,7 +106,8 @@ src/weather.js    Open-Meteo, Sonnenstand, Himmel, Wolken, Regen, Schnee, Gewitt
 src/player.js     Fahrphysik (Drift, Grip je nach Wetter), Scheinwerfer, Motorsound
 src/minimap.js    Radar und Vollbildkarte im Web-Karten-Stil mit Verkehrsfarben
 src/rail.js       Gleise, Viadukt, Oberleitung, Straßenbahnen und S-Bahn
-src/people.js     animierte Fußgänger
+src/people.js     animierte Fußgänger und Spielfigur
+src/walker.js     Spieler zu Fuß
 ```
 
 ## Lizenzen der Daten

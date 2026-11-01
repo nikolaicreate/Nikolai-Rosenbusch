@@ -63,7 +63,7 @@ function buildGraph(rails) {
         const pts = r.pts.slice(start, i + 1);
         const cum = [0];
         for (let j = 1; j < pts.length; j++) cum.push(cum[j - 1] + Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]));
-        if (cum[cum.length - 1] > 0.3) links.push({ pts, cum, len: cum[cum.length - 1], kind: r.kind, y: r.elevated ? DECK_Y + 0.25 : 0.12, a: key(pts[0]), b: key(pts[pts.length - 1]) });
+        if (cum[cum.length - 1] > 0.3) links.push({ key: (r.uid ?? '') + ':' + start, pts, cum, len: cum[cum.length - 1], kind: r.kind, y: r.elevated ? DECK_Y + 0.25 : 0.12, a: key(pts[0]), b: key(pts[pts.length - 1]) });
         start = i;
       }
     }
@@ -125,28 +125,55 @@ function sbahnCar(len, front, rear) {
 
 // ---------------------------------------------------------------- Netz
 export class RailNetwork {
-  constructor(scene, rails, colliders, roadIndex) {
+  constructor(scene) {
     this.scene = scene;
     this.rnd = mulberry32(31);
     this.tmp = { x: 0, z: 0 };
-    rails = rails || [];
-    this.graphs = {};
-    for (const kind of ['tram', 'sbahn']) this.graphs[kind] = buildGraph(rails.filter((r) => r.kind === kind));
-
+    this.graphs = { tram: { links: [], nodes: new Map() }, sbahn: { links: [], nodes: new Map() } };
     this.bodyMat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.35, roughness: 0.38 });
     this.lightMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
-    this.buildTracks(rails, colliders, roadIndex);
-
+    this.tiles = new Map();
     this.vehicles = [];
-    const tramLinks = this.graphs.tram.links.reduce((s, l) => s + l.len, 0);
-    const sLinks = this.graphs.sbahn.links.reduce((s, l) => s + l.len, 0);
-    const nTram = Math.min(10, Math.floor(tramLinks / 450));
-    const nS = Math.min(4, Math.floor(sLinks / 1200));
-    for (let i = 0; i < nTram; i++) this.addVehicle('tram');
-    for (let i = 0; i < nS; i++) this.addVehicle('sbahn');
+    this.controlled = null;
+    this.input = { throttle: 0, brake: 0 };
+    this.player = { x: 0, z: 0 };
+  }
+  addTile(id, rails, colliders, roadIndex) {
+    if (!rails.length) return;
+    const group = new THREE.Group();
+    const realScene = this.scene; this.scene = group;
+    this.buildTracks(rails, colliders, roadIndex, 'tile:' + id);
+    this.scene = realScene;
+    realScene.add(group);
+    this.tiles.set(id, group);
+  }
+  removeTile(id) {
+    const g = this.tiles.get(id); if (!g) return;
+    this.scene.remove(g);
+    g.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.isInstancedMesh) o.dispose(); });
+    this.tiles.delete(id);
+  }
+  /** Gleisnetz aus allen geladenen Kacheln neu aufbauen und Zuganzahl anpassen. */
+  setRails(rails) {
+    for (const kind of ['tram', 'sbahn']) this.graphs[kind] = buildGraph(rails.filter((r) => r.kind === kind));
+    for (const kind of ['tram', 'sbahn']) {
+      const g = this.graphs[kind];
+      const len = g.links.reduce((s, l) => s + l.len, 0);
+      const target = kind === 'tram' ? Math.min(12, Math.floor(len / 450)) : Math.min(6, Math.floor(len / 1200));
+      const list = this.vehicles.filter((v) => v.kind === kind);
+      const byKey = new Set(g.links.map((l) => l.key));
+      // Züge auf verschwundenen Gleisen neu setzen
+      for (const v of list) if (v !== this.controlled && !byKey.has(v.link.key)) { if (g.links.length) this.spawn(v); }
+      for (let n = list.length; n < target; n++) this.addVehicle(kind);
+      for (let n = list.length; n > target; n--) { const v = list[n - 1]; if (v === this.controlled) continue; this.removeVehicle(v); }
+    }
+  }
+  removeVehicle(v) {
+    for (const m of v.meshes) this.scene.remove(m);
+    this.vehicles.splice(this.vehicles.indexOf(v), 1);
   }
 
-  buildTracks(rails, colliders, roadIndex) {
+  buildTracks(rails, colliders, roadIndex, tag) {
     const steel = { pos: [], nor: [], uv: [], idx: [] }, ballast = { pos: [], nor: [], uv: [], idx: [] };
     const deck = { pos: [], nor: [], uv: [], idx: [] }, walls = { pos: [], nor: [], uv: [], idx: [] };
     const wire = [], masts = [], pillars = [];
@@ -242,7 +269,7 @@ export class RailNetwork {
         p.set(x, 0, z); q.setFromAxisAngle(up, a); m4.compose(p, q, one); im.setMatrixAt(i, m4);
         const c = Math.cos(a), s = Math.sin(a);
         const corner = (lx, lz) => [x + lx * c + lz * s, z - lx * s + lz * c];
-        colliders.add([corner(-3.7, -1.1), corner(3.7, -1.1), corner(3.7, 1.1), corner(-3.7, 1.1)]);
+        colliders.add([corner(-3.7, -1.1), corner(3.7, -1.1), corner(3.7, 1.1), corner(-3.7, 1.1)], tag);
       });
       im.castShadow = true; im.receiveShadow = true; this.scene.add(im);
     }
@@ -269,8 +296,13 @@ export class RailNetwork {
   spawn(v) {
     const g = this.graphs[v.kind];
     const total = g.links.reduce((s, l) => s + l.len, 0);
-    let r = this.rnd() * total, l = g.links[0];
-    for (const k of g.links) { r -= k.len; if (r <= 0) { l = k; break; } }
+    let l = g.links[0];
+    for (let t = 0; t < 12; t++) {
+      let r = this.rnd() * total;
+      for (const k of g.links) { r -= k.len; if (r <= 0) { l = k; break; } }
+      const d = Math.hypot(l.pts[0][0] - this.player.x, l.pts[0][1] - this.player.z);
+      if (d > 120 && d < 1400) break;
+    }
     v.link = l; v.dir = this.rnd() < 0.5 ? 1 : -1; v.s = this.rnd() * l.len; v.trail.length = 0; v.v = 0;
     v.nextStop = 80 + this.rnd() * 300;
     // Vorlauf, damit der Zug seine volle Länge hat
@@ -280,7 +312,7 @@ export class RailNetwork {
   next(v) {
     const l = v.link;
     const key = v.dir > 0 ? l.b : l.a;
-    const outs = (this.graphs[v.kind].nodes.get(key) || []).filter((o) => o.link !== l);
+    const outs = (this.graphs[v.kind].nodes.get(key) || []).filter((o) => o.link.key !== l.key);
     if (!outs.length) { v.dir = -v.dir; v.s = 0; v.trail.length = 0; for (let i = 0; i < v.length * 2 + 4; i++) this.advance(v, 0.5, true); return; }
     // möglichst geradeaus weiterfahren (Weichen)
     const tr = v.trail, n = tr.length;
@@ -311,8 +343,17 @@ export class RailNetwork {
   head(v) { const t = v.trail[v.trail.length - 1]; const u = v.trail[Math.max(0, v.trail.length - 4)]; const L = Math.hypot(t.x - u.x, t.z - u.z) || 1; return { x: t.x, z: t.z, hx: (t.x - u.x) / L, hz: (t.z - u.z) / L, y: t.y }; }
 
   update(dt, player) {
+    this.player = player;
     for (const v of this.vehicles) {
       const h = this.head(v);
+      if (v === this.controlled) {
+        const inp = this.input;
+        const acc = inp.throttle ? 1.3 : inp.brake ? -3.2 : -0.12;
+        v.v = Math.max(0, Math.min(v.vmax * 1.25, v.v + acc * dt));
+        if (v.v > 0) this.advance(v, v.v * dt);
+        this.place(v);
+        continue;
+      }
       let target = v.vmax;
       // Haltestellen
       v.nextStop -= v.v * dt;
@@ -323,7 +364,7 @@ export class RailNetwork {
       let gap = 60;
       if (v.kind === 'tram') {
         const dx = player.x - h.x, dz = player.z - h.z; const al = dx * h.hx + dz * h.hz, lat = Math.abs(dx * -h.hz + dz * h.hx);
-        if (al > 0 && al < 40 && lat < 2.6) gap = Math.min(gap, al - 3);
+        if (al > 0 && al < 40 && lat < 2.6 && !this.controlled) gap = Math.min(gap, al - 3);
       }
       let headOn = false;
       for (const o of this.vehicles) {
@@ -339,7 +380,7 @@ export class RailNetwork {
       if (target < 0.1 && v.dwell <= 0) v.blocked += dt; else v.blocked = 0;
       if (headOn && v.blocked > 6) {
         // Gegenverkehr auf demselben Gleis: der fernere Zug wird umgesetzt
-        if (Math.hypot(h.x - player.x, h.z - player.z) > 160) this.spawn(v);
+        if (Math.hypot(h.x - player.x, h.z - player.z) > 160 && v !== this.controlled) this.spawn(v);
         v.blocked = 0;
       }
       const acc = target > v.v ? 1.1 : -2.4;
@@ -368,6 +409,21 @@ export class RailNetwork {
       m.position.set((f.x + b.x) / 2, (f.y + b.y) / 2, (f.z + b.z) / 2);
       m.rotation.y = Math.atan2(f.x - b.x, f.z - b.z);
     }
+  }
+  /** Nächster Zug in Reichweite (S-Bahn auch von unten am Viadukt erreichbar). */
+  nearest(x, z, maxD = 4) {
+    let best = null, bd = Infinity;
+    for (const v of this.vehicles) {
+      const reach = v.kind === 'sbahn' ? maxD + 6 : maxD;
+      for (const m of v.meshes) {
+        const hx = Math.sin(m.rotation.y), hz = Math.cos(m.rotation.y);
+        const dx = x - m.position.x, dz = z - m.position.z;
+        const t = Math.max(-v.segLen / 2, Math.min(v.segLen / 2, dx * hx + dz * hz));
+        const d = Math.hypot(x - (m.position.x + hx * t), z - (m.position.z + hz * t)) - 1.3;
+        if (d < reach && d < bd) { bd = d; best = v; }
+      }
+    }
+    return best;
   }
   collidePlayer(x, z, r = 1.25) {
     let px = 0, pz = 0, hit = false;

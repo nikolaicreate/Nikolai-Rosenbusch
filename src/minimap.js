@@ -14,13 +14,18 @@ export function flowColor(f) {
 }
 
 export class MapRenderer {
-  constructor(data, traffic) {
-    this.data = data; this.traffic = traffic;
-    this.pad = 400;
-    this.minX = EXTENT.minX - this.pad; this.minZ = EXTENT.minZ - this.pad;
-    this.w = EXTENT.maxX - EXTENT.minX + this.pad * 2; this.h = EXTENT.maxZ - EXTENT.minZ + this.pad * 2;
-    this.scale = Math.min(1.6, 4096 / Math.max(this.w, this.h)); // px pro Meter
+  constructor(traffic) {
+    this.traffic = traffic;
     this.canvas = document.createElement('canvas');
+    this.data = { buildings: [], roads: [], water: [], parks: [] };
+    this.minX = EXTENT.minX; this.minZ = EXTENT.minZ; this.w = 1000; this.h = 1000; this.scale = 1;
+  }
+  /** Daten der geladenen Kacheln setzen; bounds = Rechteck in Metern. */
+  setData(data, bounds) {
+    this.data = data;
+    this.minX = bounds.minX; this.minZ = bounds.minZ;
+    this.w = bounds.maxX - bounds.minX; this.h = bounds.maxZ - bounds.minZ;
+    this.scale = Math.min(1.4, 4096 / Math.max(this.w, this.h));
     this.canvas.width = Math.ceil(this.w * this.scale); this.canvas.height = Math.ceil(this.h * this.scale);
     this.render();
   }

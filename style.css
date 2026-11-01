@@ -54,6 +54,10 @@ html, body {
 #toast { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); background: var(--glass); border: 1px solid var(--glass-border);
   border-radius: 999px; padding: 8px 18px; font-size: 14px; opacity: 0; transition: opacity .4s; backdrop-filter: blur(8px); }
 #toast.show { opacity: 1; }
+#prompt { position: absolute; left: 50%; bottom: 60px; transform: translateX(-50%); background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 10px; padding: 8px 16px; font-size: 15px; opacity: 0; transition: opacity .25s; backdrop-filter: blur(8px); white-space: nowrap; }
+#prompt.show { opacity: 1; }
+#prompt kbd { font: 700 13px Inter, sans-serif; background: #fff; color: #111; border-radius: 4px; padding: 1px 7px; margin-right: 6px; }
 #help { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); font-size: 11px; color: rgba(255,255,255,.55); white-space: nowrap; text-shadow: 0 1px 3px #000; }
 
 /* ---------- Karte ---------- */

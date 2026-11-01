@@ -22,7 +22,7 @@ function buildGraph(roads) {
         const len = cum[cum.length - 1];
         if (len > 0.5) {
           const mid = pts[Math.floor(pts.length / 2)];
-          links.push({ pts, cum, len, road: r, a: key(pts[0]), b: key(pts[pts.length - 1]), oneway: r.oneway, speed: ROAD_TYPES[r.type].speed, major: ROAD_TYPES[r.type].major, mx: mid[0], mz: mid[1], flow: 1, id: links.length });
+          links.push({ key: (r.uid ?? r.id ?? '') + ':' + start, pts, cum, len, road: r, a: key(pts[0]), b: key(pts[pts.length - 1]), oneway: r.oneway, speed: ROAD_TYPES[r.type].speed, major: ROAD_TYPES[r.type].major, mx: mid[0], mz: mid[1], flow: 1, id: links.length });
         }
         start = i;
       }
@@ -113,12 +113,19 @@ export class LiveTraffic {
     } else this.status = 'Tageszeit-Modell';
     this.source = 'model';
     this.level = model;
+    this.modelFlows(model);
+    this.updated = new Date();
+  }
+  modelFlows(model) {
     for (const l of this.links) {
       const rnd = mulberry32(hashStr(l.road.name || String(l.id)) + Math.floor(Date.now() / 600000));
       const sens = l.major ? 0.7 + rnd() * 0.7 : 0.25 + rnd() * 0.3;
       l.flow = Math.max(0.12, Math.min(1, 1 - model * 0.75 * sens - (rnd() < 0.05 * model ? 0.4 : 0)));
     }
-    this.updated = new Date();
+  }
+  reflow() {
+    if (this.source === 'tomtom' && this.samples.length) this.applySamples(this.samples.reduce((s, r) => s + r.ratio, 0) / this.samples.length);
+    else this.modelFlows(this.level);
   }
   applySamples(avg) {
     const pts = [];
@@ -136,15 +143,14 @@ const TYPE_MIX = [['city', 0.24], ['vision', 0.14], ['sedan', 0.18], ['hatch', 0
 
 export class Traffic {
   constructor(scene, roads, maxCars = 170) {
-    const { links, nodes } = buildGraph(roads);
-    this.links = links; this.nodes = nodes;
-    this.live = new LiveTraffic(links);
+    this.links = []; this.nodes = new Map();
+    this.live = new LiveTraffic(this.links);
+    this.obstacles = [];
     this.maxCars = maxCars;
     this.density = 0.6;
     this.cars = [];
     this.rnd = mulberry32(2024);
     this.tmp = { x: 0, z: 0, tx: 0, tz: 0 };
-    this.majorLinks = links.filter((l) => l.major || l.road.type === 'residential');
 
     // Instanzen pro Typ
     this.meshes = {};
@@ -152,7 +158,7 @@ export class Traffic {
     for (let i = 0; i < maxCars; i++) {
       const type = this.pickType(i);
       counts[type] = (counts[type] || 0) + 1;
-      this.cars.push({ type, idx: counts[type] - 1, link: null, dir: 1, s: 0, v: 0, x: 0, z: 0, hx: 0, hz: 1, lane: 0, wish: 1, active: false, stop: 0 });
+      this.cars.push({ cool: undefined, type, idx: counts[type] - 1, link: null, dir: 1, s: 0, v: 0, x: 0, z: 0, hx: 0, hz: 1, lane: 0, wish: 1, active: false, stop: 0 });
     }
     const mats = makeCarMaterials(0xffffff);
     mats.body = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.55, roughness: 0.3 });
@@ -178,7 +184,42 @@ export class Traffic {
     }
     this.length = { sedan: 4.7, hatch: 4.1, suv: 4.8, van: 5.3, taxi: 4.7, bus: 12, dd: 11.4, city: 3.8, vision: 5.15, sport: 4.5 };
     this.grid = new Map();
+    this.setRoads(roads);
     this.m4 = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.p = new THREE.Vector3(); this.one = new THREE.Vector3(1, 1, 1); this.zero = new THREE.Vector3(0, 0, 0); this.up = new THREE.Vector3(0, 1, 0);
+  }
+  /** Straßennetz austauschen (Kacheln geladen/entladen); Autos bleiben auf ihren Strecken. */
+  setRoads(roads) {
+    const { links, nodes } = buildGraph(roads);
+    const byKey = new Map(links.map((l) => [l.key, l]));
+    for (const c of this.cars) {
+      if (!c.active || !c.link) continue;
+      const nl = byKey.get(c.link.key);
+      if (nl && Math.abs(nl.len - c.link.len) < 0.5) c.link = nl; else { c.active = false; c.cool = 0; }
+    }
+    this.links = links; this.nodes = nodes;
+    this.majorLinks = links.filter((l) => l.major || l.road.type === 'residential');
+    this.live.links = links;
+    this.live.reflow();
+  }
+  /** Nächstes KI-Auto (für das Einsteigen). */
+  nearestCar(x, z, maxD = 4) {
+    let best = null, bd = maxD;
+    for (const c of this.cars) {
+      if (!c.active) continue;
+      const half = this.length[c.type] / 2;
+      const dx = x - c.x, dz = z - c.z;
+      const t = Math.max(-half, Math.min(half, dx * c.hx + dz * c.hz));
+      const d = Math.hypot(x - (c.x + c.hx * t), z - (c.z + c.hz * t)) - 1;
+      if (d < bd) { bd = d; best = c; }
+    }
+    return best;
+  }
+  /** KI-Auto übernehmen: Instanz ausblenden, Typ & Farbe zurückgeben. */
+  takeCar(c) {
+    const col = new THREE.Color();
+    this.meshes[c.type].body.getColorAt(c.idx, col);
+    c.active = false; c.cool = 20;
+    return { type: c.type, color: col.getHex(), x: c.x, z: c.z, heading: Math.atan2(c.hx, c.hz) };
   }
   pickType() {
     let r = this.rnd();
@@ -256,7 +297,8 @@ export class Traffic {
     for (let i = 0; i < this.cars.length; i++) {
       const c = this.cars[i];
       if (i >= active) { c.active = false; continue; }
-      if (!c.active || Math.hypot(c.x - px, c.z - pz) > 460) { if (!this.spawn(c, px, pz, c.active ? 200 : 40, 420)) c.active = false; continue; }
+      if (c.cool > 0) { c.cool -= dt; if (!c.active) continue; }
+      if (!c.active || Math.hypot(c.x - px, c.z - pz) > 460) { if (!this.spawn(c, px, pz, c.active || c.cool !== undefined ? 160 : 40, 420)) c.active = false; continue; }
       const l = c.link;
       let target = l.speed * l.flow * c.wish;
       // Abbremsen vor Kreuzungen
@@ -279,10 +321,19 @@ export class Traffic {
           gap = Math.min(gap, along - (this.length[o.type] + this.length[c.type]) / 2);
         }
       }
+      if (!(c.ignore > 0)) for (const o of this.obstacles) {
+        const dx = o.x - c.x, dz = o.z - c.z;
+        const along = dx * fx + dz * fz; if (along <= 0 || along > 40) continue;
+        const lat = Math.abs(dx * -fz + dz * fx); if (lat > 2.0) continue;
+        gap = Math.min(gap, along - (o.len + this.length[c.type]) / 2);
+      }
+      if (c.ignore > 0) c.ignore -= dt;
       { const dx = px - c.x, dz = pz - c.z; const along = dx * fx + dz * fz; const lat = Math.abs(dx * -fz + dz * fx);
         if (along > 0 && along < 40 && lat < 2.2) gap = Math.min(gap, along - this.length[c.type] / 2 - 2.4); }
       if (c.stop > 0) { c.stop -= dt; target = 0; }
       target = Math.min(target, Math.max(0, (gap - 2.5) * 0.9));
+      // lange blockiert (z. B. hinter geparktem Auto) -> vorbeifahren
+      if (target < 0.2) { c.blocked = (c.blocked || 0) + dt; if (c.blocked > 6) { c.ignore = 15; c.blocked = 0; } } else c.blocked = 0;
       const acc = target > c.v ? 2.2 : -7.5;
       c.v = Math.max(0, c.v + Math.sign(target - c.v) * Math.min(Math.abs(target - c.v), Math.abs(acc) * dt));
       c.s += c.v * dt;

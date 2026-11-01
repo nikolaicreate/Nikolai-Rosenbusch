@@ -1,6 +1,6 @@
 // Ersatz-Stadt, falls OpenStreetMap nicht erreichbar ist: grobes Modell von
 // Berlin-Mitte (Straßennamen, Spree, Tiergarten, Blockrandbebauung mit 22 m Traufhöhe).
-import { mulberry32, LANDMARKS } from './geo.js';
+import { mulberry32, LANDMARKS, clipData, clipPolyline, tileBounds, project } from './geo.js';
 
 export function makeFallbackCity() {
   const rnd = mulberry32(1871);
@@ -139,4 +139,154 @@ export function makeFallbackCity() {
     }
   }
   return data;
+}
+
+// ---------------------------------------------------------------- Modell für ganz Berlin (kachelweise)
+
+let core = null, coreRect = null;
+function getCore() {
+  if (!core) {
+    core = makeFallbackCity();
+    const zL = LANDMARKS.tor[1];
+    coreRect = { minX: -2600, maxX: 1180, minZ: zL - 940, maxZ: zL + 940 };
+  }
+  return core;
+}
+function h3(a, b, c = 0) {
+  let x = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263) ^ Math.imul(c | 0, 2147483647);
+  x = Math.imul(x ^ (x >>> 13), 1274126177); x ^= x >>> 16;
+  return (x >>> 0) / 4294967296;
+}
+const STREETS = ['Bergmannstraße', 'Kastanienallee', 'Oranienstraße', 'Sonnenallee', 'Kantstraße', 'Schönhauser Allee', 'Boxhagener Straße', 'Weserstraße', 'Hermannstraße', 'Danziger Straße',
+  'Greifswalder Straße', 'Prenzlauer Allee', 'Warschauer Straße', 'Frankfurter Allee', 'Karl-Marx-Straße', 'Hauptstraße', 'Bundesallee', 'Schloßstraße', 'Müllerstraße', 'Seestraße',
+  'Turmstraße', 'Gneisenaustraße', 'Yorckstraße', 'Potsdamer Straße', 'Kurfürstendamm', 'Wilmersdorfer Straße', 'Brunnenstraße', 'Invalidenstraße', 'Landsberger Allee', 'Storkower Straße',
+  'Wisbyer Straße', 'Bornholmer Straße', 'Osloer Straße', 'Residenzstraße', 'Badstraße', 'Kottbusser Damm', 'Urbanstraße', 'Böckhstraße', 'Simon-Dach-Straße', 'Revaler Straße',
+  'Pappelallee', 'Stargarder Straße', 'Lychener Straße', 'Dunckerstraße', 'Gleimstraße', 'Hufelandstraße', 'Bötzowstraße', 'Grünberger Straße', 'Kopernikusstraße', 'Wühlischstraße',
+  'Akazienstraße', 'Goltzstraße', 'Crellestraße', 'Leberstraße', 'Rheinstraße', 'Schildhornstraße', 'Albrechtstraße', 'Rathausstraße', 'Bahnhofstraße', 'Dorfstraße',
+  'Lindenstraße', 'Birkenweg', 'Ahornstraße', 'Eichenallee', 'Am Park', 'Gartenstraße', 'Mühlenstraße', 'Wiesenweg', 'Florastraße', 'Breite Straße'];
+const SP = 175;
+const lineX = (k) => k * SP + (h3(k, 1) - 0.5) * 50;
+const lineZ = (m) => m * SP + (h3(m, 2) - 0.5) * 50;
+function lineType(k, axis) {
+  if (k % 8 === 0) return ['primary', 20];
+  if (k % 4 === 0) return ['secondary', 15];
+  if (h3(k, axis, 9) < 0.2) return ['tertiary', 11];
+  return ['residential', 9];
+}
+const PALETTE = [0xeae2d4, 0xdcd0bb, 0xd2c8b8, 0xc4baa9, 0xe7dfd2, 0xcdbb9f, 0xb2ada4, 0xd9d3c9, 0xf0ebe1, 0xbfa98d, 0xc9c2b8, 0xe2d6c0];
+const PLATTE = [0xd9d4c4, 0xc8cdd0, 0xe3dccb, 0xb9c4c9, 0xd6c7a8];
+const inRect = (x, z, r) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ;
+
+// grobe Stadtstruktur: Innenstadt (Altbau), Großsiedlungen, Stadtrand
+let PLATTE_AREAS = null;
+const rectLL = (s, w, n, e) => { const a = project(n, w), b = project(s, e); return { minX: a[0], minZ: a[1], maxX: b[0], maxZ: b[1] }; };
+let GREEN = null;
+const greenAreas = () => [
+  rectLL(52.508, 13.335, 52.520, 13.372),  // Tiergarten
+  rectLL(52.467, 13.392, 52.481, 13.418),  // Tempelhofer Feld
+  rectLL(52.440, 13.195, 52.500, 13.265),  // Grunewald
+  rectLL(52.483, 13.462, 52.494, 13.484),  // Treptower Park
+  rectLL(52.524, 13.428, 52.531, 13.442),  // Volkspark Friedrichshain
+  rectLL(52.430, 13.600, 52.455, 13.660),  // Müggelheide (Köpenick)
+];
+function zoneAt(x, z) {
+  if (!GREEN) { GREEN = greenAreas(); PLATTE_AREAS = [project(52.540, 13.580), project(52.566, 13.505), project(52.425, 13.462), project(52.555, 13.330), project(52.512, 13.495)]; }
+  const d = Math.hypot(x, z) / 1000;
+  if (GREEN.some((g) => inRect(x, z, g))) return 'green';
+  if (PLATTE_AREAS.some(([px, pz]) => Math.hypot(x - px, z - pz) < 1600)) return 'platte';
+  if (d < 6.5) return 'altbau';
+  if (d < 10) return 'mixed';
+  return 'suburb';
+}
+
+function proceduralTile(i, j) {
+  const b = tileBounds(i, j);
+  const data = { buildings: [], roads: [], water: [], parks: [], rails: [] };
+  const k0 = Math.floor(b.minX / SP) - 1, k1 = Math.ceil(b.maxX / SP) + 1;
+  const m0 = Math.floor(b.minZ / SP) - 1, m1 = Math.ceil(b.maxZ / SP) + 1;
+  const skipSeg = (x0, z0, x1, z1) => inRect((x0 + x1) / 2, (z0 + z1) / 2, coreRect);
+  // Nord-Süd-Straßen
+  for (let k = k0; k <= k1; k++) {
+    const x = lineX(k); if (x < b.minX - 1 || x > b.maxX + 1) continue;
+    const [type, width] = lineType(k, 1);
+    const name = STREETS[Math.floor(h3(k, 3) * STREETS.length)];
+    for (let m = m0; m < m1; m++) {
+      const z0 = lineZ(m), z1 = lineZ(m + 1);
+      if (skipSeg(x, z0, x, z1)) continue;
+      if (type === 'residential' && zoneAt(x, (z0 + z1) / 2) === 'green') continue;
+      for (const pts of clipPolyline([[x, z0], [x, z1]], b)) data.roads.push({ pts, type, width, name, oneway: 0 });
+    }
+  }
+  // Ost-West-Straßen
+  for (let m = m0; m <= m1; m++) {
+    const z = lineZ(m); if (z < b.minZ - 1 || z > b.maxZ + 1) continue;
+    const [type, width] = lineType(m, 2);
+    const name = STREETS[Math.floor(h3(m, 4) * STREETS.length)];
+    for (let k = k0; k < k1; k++) {
+      const x0 = lineX(k), x1 = lineX(k + 1);
+      if (skipSeg(x0, z, x1, z)) continue;
+      if (type === 'residential' && zoneAt((x0 + x1) / 2, z) === 'green') continue;
+      for (const pts of clipPolyline([[x0, z], [x1, z]], b)) data.roads.push({ pts, type, width, name, oneway: 0 });
+    }
+  }
+  // Blöcke
+  for (let k = k0; k < k1; k++) for (let m = m0; m < m1; m++) {
+    const xa0 = lineX(k), xb0 = lineX(k + 1), za0 = lineZ(m), zb0 = lineZ(m + 1);
+    const cx = (xa0 + xb0) / 2, cz = (za0 + zb0) / 2;
+    if (cx < b.minX || cx >= b.maxX || cz < b.minZ || cz >= b.maxZ) continue;
+    if (inRect(cx, cz, coreRect)) continue;
+    const xa = xa0 + lineType(k, 1)[1] / 2 + 4, xb = xb0 - lineType(k + 1, 1)[1] / 2 - 4;
+    const za = za0 + lineType(m, 2)[1] / 2 + 4, zb = zb0 - lineType(m + 1, 2)[1] / 2 - 4;
+    if (xb - xa < 30 || zb - za < 30) continue;
+    const r = mulberry32(Math.floor(h3(k, m, 7) * 1e9));
+    const zone = zoneAt(cx, cz);
+    if (zone === 'green' || r() < (zone === 'suburb' ? 0.12 : 0.07)) { data.parks.push([[xa, za], [xb, za], [xb, zb], [xa, zb]]); continue; }
+    const add = (x0, z0, x1, z1, hgt, col) => data.buildings.push({ ring: [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], h: hgt, color: col, name: '' });
+    if (zone === 'altbau' || zone === 'mixed') {
+      const hBase = zone === 'altbau' ? 17 : 12, hVar = zone === 'altbau' ? 7 : 6;
+      const depth = 12 + r() * 4;
+      for (const side of [0, 1]) {
+        let x = xa;
+        while (x < xb - 6) { const w = Math.min(xb - x, 13 + r() * 14); const hh = hBase + r() * hVar; if (side === 0) add(x, za, x + w, za + depth, hh, PALETTE[Math.floor(r() * PALETTE.length)]); else add(x, zb - depth, x + w, zb, hh, PALETTE[Math.floor(r() * PALETTE.length)]); x += w; }
+      }
+      for (const side of [0, 1]) {
+        let z = za + depth;
+        while (z < zb - depth - 6) { const w = Math.min(zb - depth - z, 13 + r() * 14); const hh = hBase + r() * hVar; if (side === 0) add(xa, z, xa + depth, z + w, hh, PALETTE[Math.floor(r() * PALETTE.length)]); else add(xb - depth, z, xb, z + w, hh, PALETTE[Math.floor(r() * PALETTE.length)]); z += w; }
+      }
+    } else if (zone === 'platte') {
+      // Plattenbau-Riegel und Punkthochhäuser
+      const col = PLATTE[Math.floor(r() * PLATTE.length)];
+      if (r() < 0.6) {
+        const along = xb - xa > zb - za;
+        const n = 1 + Math.floor(r() * 2);
+        for (let q = 0; q < n; q++) {
+          const hh = 3 * (5 + Math.floor(r() * 7)) + 1;
+          if (along) { const z = za + 10 + q * ((zb - za - 30) / Math.max(1, n - 1 || 1)); add(xa + 8, z, xb - 8, z + 13, hh, col); }
+          else { const x = xa + 10 + q * ((xb - xa - 30) / Math.max(1, n - 1 || 1)); add(x, za + 8, x + 13, zb - 8, hh, col); }
+        }
+      } else {
+        const hh = 3 * (11 + Math.floor(r() * 10)) + 1;
+        add(cx - 14, cz - 14, cx + 14, cz + 14, hh, col);
+      }
+    } else {
+      // Einfamilienhäuser am Stadtrand
+      for (let x = xa + 6; x < xb - 14; x += 22 + r() * 8) for (const zz of [za + 8, zb - 18]) {
+        if (r() < 0.15) continue;
+        add(x, zz, x + 10 + r() * 4, zz + 9 + r() * 3, 6 + r() * 4, PALETTE[Math.floor(r() * PALETTE.length)]);
+      }
+    }
+  }
+  return data;
+}
+
+/** Modell-Daten für eine Kachel: im Zentrum das Mitte-Modell, außerhalb ein generiertes Berlin. */
+export function makeFallbackTile(i, j) {
+  const c = getCore();
+  const b = tileBounds(i, j);
+  const out = clipData(c, b);
+  const p = proceduralTile(i, j);
+  for (const k of ['buildings', 'roads', 'water', 'parks', 'rails']) out[k].push(...p[k]);
+  let uid = (i * 100003 + j) * 10000;
+  for (const r of out.roads) if (!r.uid) r.uid = 'p' + (uid++);
+  return out;
 }

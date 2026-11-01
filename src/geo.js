@@ -26,7 +26,91 @@ export const EXTENT = (() => {
 export const LANDMARKS = {
   tor: project(52.516275, 13.377704),
   fernsehturm: project(52.520815, 13.409419),
+  siegessaeule: project(52.514517, 13.350116),
 };
+
+// ---------------------------------------------------------------- Kacheln (ganz Berlin)
+export const TILE = 1000; // Meter
+export const BERLIN = { s: 52.338, w: 13.088, n: 52.676, e: 13.761 };
+export const tileOf = (x, z) => [Math.floor(x / TILE), Math.floor(z / TILE)];
+export const tileId = (i, j) => i + ',' + j;
+export function tileBounds(i, j) { return { minX: i * TILE, maxX: (i + 1) * TILE, minZ: j * TILE, maxZ: (j + 1) * TILE }; }
+export function tileInBerlin(i, j) {
+  const b = tileBounds(i, j);
+  const nw = unproject(b.minX, b.minZ), se = unproject(b.maxX, b.maxZ);
+  return se.lat < BERLIN.n && nw.lat > BERLIN.s && nw.lon < BERLIN.e && se.lon > BERLIN.w;
+}
+
+// Ortsteile (Mittelpunkte) für die Anzeige
+const DISTRICTS = [
+  ['Mitte', 52.520, 13.405], ['Tiergarten', 52.514, 13.350], ['Moabit', 52.530, 13.342], ['Wedding', 52.550, 13.366], ['Gesundbrunnen', 52.548, 13.388],
+  ['Prenzlauer Berg', 52.539, 13.424], ['Friedrichshain', 52.512, 13.454], ['Kreuzberg', 52.497, 13.403], ['Schöneberg', 52.482, 13.355], ['Charlottenburg', 52.516, 13.304],
+  ['Wilmersdorf', 52.487, 13.320], ['Neukölln', 52.481, 13.435], ['Tempelhof', 52.466, 13.385], ['Alt-Treptow', 52.491, 13.468], ['Lichtenberg', 52.513, 13.499],
+  ['Pankow', 52.569, 13.402], ['Weißensee', 52.554, 13.466], ['Steglitz', 52.456, 13.322], ['Zehlendorf', 52.434, 13.259], ['Spandau', 52.535, 13.200],
+  ['Reinickendorf', 52.588, 13.330], ['Köpenick', 52.445, 13.574], ['Marzahn', 52.545, 13.564], ['Hellersdorf', 52.537, 13.604], ['Hohenschönhausen', 52.566, 13.512],
+  ['Dahlem', 52.458, 13.288], ['Grunewald', 52.483, 13.262], ['Britz', 52.448, 13.434], ['Adlershof', 52.435, 13.540], ['Friedenau', 52.471, 13.331],
+  ['Westend', 52.517, 13.266], ['Tegel', 52.587, 13.284], ['Lichterfelde', 52.433, 13.309], ['Mariendorf', 52.440, 13.388], ['Rudow', 52.418, 13.497],
+  ['Karlshorst', 52.481, 13.528], ['Friedrichsfelde', 52.506, 13.513], ['Oberschöneweide', 52.461, 13.519], ['Gropiusstadt', 52.425, 13.462], ['Wannsee', 52.421, 13.163],
+];
+const DIST_XY = DISTRICTS.map(([n, la, lo]) => [n, ...project(la, lo)]);
+export function districtAt(x, z) {
+  let best = 'Berlin', bd = Infinity;
+  for (const [n, dx, dz] of DIST_XY) { const d = (x - dx) ** 2 + (z - dz) ** 2; if (d < bd) { bd = d; best = n; } }
+  return best;
+}
+
+// ---------------------------------------------------------------- Zuschneiden
+function clipSegment(ax, az, bx, bz, b) {
+  // Liang-Barsky
+  let t0 = 0, t1 = 1; const dx = bx - ax, dz = bz - az;
+  const ps = [-dx, dx, -dz, dz], qs = [ax - b.minX, b.maxX - ax, az - b.minZ, b.maxZ - az];
+  for (let i = 0; i < 4; i++) {
+    if (ps[i] === 0) { if (qs[i] < 0) return null; continue; }
+    const t = qs[i] / ps[i];
+    if (ps[i] < 0) { if (t > t1) return null; if (t > t0) t0 = t; } else { if (t < t0) return null; if (t < t1) t1 = t; }
+  }
+  return [t0, t1, [ax + dx * t0, az + dz * t0], [ax + dx * t1, az + dz * t1]];
+}
+export function clipPolyline(pts, b) {
+  const out = []; let cur = null;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const c = clipSegment(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], b);
+    if (!c) { if (cur) { out.push(cur); cur = null; } continue; }
+    const [t0, t1, p0, p1] = c;
+    if (!cur || t0 > 0) { if (cur) out.push(cur); cur = [t0 > 0 ? p0 : pts[i]]; }
+    cur.push(t1 < 1 ? p1 : pts[i + 1]);
+    if (t1 < 1) { out.push(cur); cur = null; }
+  }
+  if (cur) out.push(cur);
+  return out.filter((l) => l.length >= 2);
+}
+export function clipPolygon(ring, b) {
+  let out = ring;
+  const edges = [[(p) => p[0] >= b.minX, (p, q) => isect(p, q, 0, b.minX)], [(p) => p[0] <= b.maxX, (p, q) => isect(p, q, 0, b.maxX)], [(p) => p[1] >= b.minZ, (p, q) => isect(p, q, 1, b.minZ)], [(p) => p[1] <= b.maxZ, (p, q) => isect(p, q, 1, b.maxZ)]];
+  function isect(p, q, ax, v) { const t = (v - p[ax]) / (q[ax] - p[ax]); return [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]; }
+  for (const [inside, cut] of edges) {
+    const inp = out; out = [];
+    for (let i = 0; i < inp.length; i++) {
+      const cur = inp[i], prev = inp[(i + inp.length - 1) % inp.length];
+      if (inside(cur)) { if (!inside(prev)) out.push(cut(prev, cur)); out.push(cur); }
+      else if (inside(prev)) out.push(cut(prev, cur));
+    }
+    if (!out.length) break;
+  }
+  return out;
+}
+const centroid = (ring) => [ring.reduce((s, p) => s + p[0], 0) / ring.length, ring.reduce((s, p) => s + p[1], 0) / ring.length];
+const inB = (p, b) => p[0] >= b.minX && p[0] < b.maxX && p[1] >= b.minZ && p[1] < b.maxZ;
+let uidCounter = 0;
+/** Schneidet Kartendaten auf eine Kachel zu (Gebäude über Schwerpunkt, Linien/Flächen geometrisch). */
+export function clipData(data, b) {
+  const out = { buildings: [], roads: [], water: [], parks: [], rails: [] };
+  for (const bd of data.buildings) if (inB(centroid(bd.ring), b)) out.buildings.push(bd);
+  for (const r of data.roads) for (const pts of clipPolyline(r.pts, b)) out.roads.push({ ...r, pts, uid: ++uidCounter });
+  for (const r of data.rails || []) for (const pts of clipPolyline(r.pts, b)) out.rails.push({ ...r, pts, uid: ++uidCounter });
+  for (const k of ['water', 'parks']) for (const ring of data[k]) { const c = clipPolygon(ring, b); if (c.length >= 3) out[k].push(c); }
+  return out;
+}
 
 // Straßenklassen: Breite (m), Tempo (m/s), befahrbar, Hauptstraße
 export const ROAD_TYPES = {
@@ -194,6 +278,45 @@ async function writeCache(json) {
     const c = await caches.open('berlin-drive');
     await c.put(CACHE_URL, new Response(JSON.stringify(json), { headers: { 'content-type': 'application/json', 'x-saved': String(Date.now()) } }));
   } catch { /* egal */ }
+}
+
+const tileQuery = (b) => `[out:json][timeout:60];(
+    way["building"](${b});relation["building"](${b});
+    way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|pedestrian)(_link)?$"](${b});
+    way["railway"~"^(tram|light_rail|rail)$"](${b});
+    way["natural"="water"](${b});relation["natural"="water"](${b});
+    way["leisure"~"^(park|garden)$"](${b});relation["leisure"="park"](${b});
+    way["landuse"~"^(grass|forest|meadow|recreation_ground|village_green)$"](${b});
+  );out geom;`;
+let endpointIdx = 0;
+/** Lädt eine Kachel aus OpenStreetMap (mit Cache). Wirft bei Fehlern. */
+export async function loadTileOSM(i, j) {
+  const key = `./__bd_tile_v1_${i}_${j}.json`;
+  let json = null;
+  try {
+    if ('caches' in self) { const c = await caches.open('berlin-drive'); const r = await c.match(key); if (r && Date.now() - Number(r.headers.get('x-saved') || 0) < 30 * 864e5) json = await r.json(); }
+  } catch { /* egal */ }
+  if (!json) {
+    const bb = tileBounds(i, j);
+    const nw = unproject(bb.minX, bb.minZ), se = unproject(bb.maxX, bb.maxZ);
+    const q = tileQuery(`${se.lat},${nw.lon},${nw.lat},${se.lon}`);
+    let lastErr;
+    for (let k = 0; k < ENDPOINTS.length; k++) {
+      const url = ENDPOINTS[(endpointIdx + k) % ENDPOINTS.length];
+      try {
+        const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 45000);
+        const res = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: ctrl.signal });
+        clearTimeout(to);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        json = await res.json();
+        endpointIdx = (endpointIdx + k) % ENDPOINTS.length;
+        break;
+      } catch (e) { lastErr = e; }
+    }
+    if (!json) throw lastErr || new Error('Overpass nicht erreichbar');
+    try { if ('caches' in self) { const c = await caches.open('berlin-drive'); await c.put(key, new Response(JSON.stringify(json), { headers: { 'content-type': 'application/json', 'x-saved': String(Date.now()) } })); } } catch { /* egal */ }
+  }
+  return clipData(parseOSM(json), tileBounds(i, j));
 }
 
 export async function loadMapData(onStatus) {

@@ -21,18 +21,7 @@ export class People {
     this.colliders = colliders;
     this.rnd = mulberry32(77);
     this.paths = [];
-    for (const r of roads) {
-      if (r.type === 'service') continue;
-      const ped = r.type === 'pedestrian';
-      const offs = ped ? [-(r.width / 2 - 1.4), 0, r.width / 2 - 1.4] : [-(r.width / 2 + 1.6), r.width / 2 + 1.6];
-      for (const o of offs) {
-        const pts = offsetLine(r.pts, o);
-        const cum = [0];
-        for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-        const len = cum[cum.length - 1];
-        if (len > 8) this.paths.push({ pts, cum, len, w: ped ? 3 : 1, mx: pts[pts.length >> 1][0], mz: pts[pts.length >> 1][1] });
-      }
-    }
+    this.setRoads(roads);
     this.count = count;
     const mk = (geo, mat) => { const m = new THREE.InstancedMesh(geo, mat, count); m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.castShadow = true; m.frustumCulled = false; scene.add(m); return m; };
     const cloth = new THREE.MeshStandardMaterial({ roughness: 0.85 });
@@ -64,6 +53,22 @@ export class People {
     }
     this.frame = 0;
     this.M = new THREE.Matrix4(); this.L = new THREE.Matrix4(); this.R = new THREE.Matrix4(); this.Q = new THREE.Quaternion(); this.V = new THREE.Vector3(); this.S = new THREE.Vector3(); this.E = new THREE.Euler(); this.zero = new THREE.Matrix4().makeScale(0, 0, 0);
+  }
+  setRoads(roads) {
+    const paths = [];
+    for (const r of roads) {
+      if (r.type === 'service') continue;
+      const ped = r.type === 'pedestrian';
+      const offs = ped ? [-(r.width / 2 - 1.4), 0, r.width / 2 - 1.4] : [-(r.width / 2 + 1.6), r.width / 2 + 1.6];
+      for (const o of offs) {
+        const pts = offsetLine(r.pts, o);
+        const cum = [0];
+        for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+        const len = cum[cum.length - 1];
+        if (len > 8) paths.push({ pts, cum, len, w: ped ? 3 : 1 });
+      }
+    }
+    this.paths = paths;
   }
   spawn(p, px, pz, minR, maxR) {
     for (let t = 0; t < 30; t++) {
@@ -152,5 +157,25 @@ export class People {
     }
     for (const k in this.m) this.m[k].instanceMatrix.needsUpdate = true;
   }
-  /** Stößt der Spieler eine Person an, wird sie weggeschoben (keine Verletzungen). */
+}
+
+/** Einzelne Figur (für den Spieler zu Fuß) mit beweglichen Gliedern. */
+export function makePersonFigure({ coat = 0x2b3a55, pants = 0x1b1c20, skin = 0xe6bfa1, hair = 0x3a2a20 } = {}) {
+  const g = new THREE.Group();
+  const mat = (c, r = 0.8) => new THREE.MeshStandardMaterial({ color: c, roughness: r });
+  const torsoG = new THREE.CapsuleGeometry(0.2, 0.42, 4, 12); torsoG.scale(1, 1, 0.62);
+  const torso = new THREE.Mesh(torsoG, mat(coat)); torso.position.y = 1.22; g.add(torso);
+  const limb = (r, len, c, x, y) => {
+    const pivot = new THREE.Group(); pivot.position.set(x, y, 0);
+    const geo = new THREE.CapsuleGeometry(r, len, 3, 8); geo.translate(0, -(len / 2 + r), 0);
+    pivot.add(new THREE.Mesh(geo, mat(c))); g.add(pivot); return pivot;
+  };
+  const legL = limb(0.075, 0.72, pants, -0.1, 0.9), legR = limb(0.075, 0.72, pants, 0.1, 0.9);
+  const armL = limb(0.055, 0.5, coat, -0.26, 1.48), armR = limb(0.055, 0.5, coat, 0.26, 1.48);
+  const headG = new THREE.SphereGeometry(0.11, 16, 12); headG.scale(0.92, 1.08, 1);
+  const head = new THREE.Mesh(headG, mat(skin, 0.6)); head.position.set(0, 1.66, 0.01); g.add(head);
+  const hairM = new THREE.Mesh(new THREE.SphereGeometry(0.118, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), mat(hair, 0.9)); hairM.position.set(0, 1.69, 0); g.add(hairM);
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  g.userData = { legL, legR, armL, armR, torso };
+  return g;
 }
